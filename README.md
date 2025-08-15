@@ -1,5 +1,7 @@
 # Pourbaix-Diagram-from-Materials-Project
 
+## What is this?
+
 Pourbaix GUI R2 — PyQt5 desktop app to generate Pourbaix (pH–potential) diagrams using Materials Project via pymatgen. Interactive UI for multi‑element systems, tunable plot styling, and export of images and boundary data. The packaged Windows build includes the frozen executable and runtime files so non‑Python users can run the tool directly.
 
 ## Key features
