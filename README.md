@@ -19,3 +19,9 @@ Pourbaix GUI R2 — PyQt5 desktop app to generate Pourbaix (pH–potential) diag
 
 - The app requires internet access and a valid Materials Project API key. Do not distribute API keys with the package.
 - If export fails, choose a user-writable folder (Documents or Desktop) and send `pourbaix_gui_R2_runtime.log` for debugging.
+  
+The interface of this GUI is presented as follows.
+<img width="1915" height="1029" alt="Interface" src="https://github.com/user-attachments/assets/4599e365-2ebf-4aff-b693-0fdfca02f8a4" />
+
+Example of TiO2.
+<img width="4125" height="2438" alt="pourbaix_diagram_Ti0 3333O0 6667" src="https://github.com/user-attachments/assets/b6e7e6c0-33c1-401f-9e3f-98fbee3f7c48" />
