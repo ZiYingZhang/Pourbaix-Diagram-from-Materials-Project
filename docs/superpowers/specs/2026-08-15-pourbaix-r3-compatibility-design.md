@@ -41,7 +41,7 @@ Restore source and packaged Windows operation after the `pymatgen` / `pymatgen-c
 ## Production changes
 
 1. Add pure input parsing that validates element symbols, ranges, ratio counts, positive ratios, and excludes H/O from `comp_dict`.
-2. Change the default single-metal example to `Ti` with ratio `1.0`.
+2. Change the default example to `Ti,O` with ratio `1.0` for the non-H/O element.
 3. Make sanitation retry run when the initial ion-reference path raises the targeted missing-field exception, not only when it returns an empty list.
 4. Add `--self-test` to import the runtime-critical modules and exit without showing the GUI.
 5. Move logs out of the executable directory into the per-user local application data directory.
@@ -90,4 +90,3 @@ Restore source and packaged Windows operation after the `pymatgen` / `pymatgen-c
 ## External acceptance
 
 Testing on a separate clean Windows x64 machine without Python is required for final portable-package acceptance. Until executed against the final archive hash, this gate remains Pending.
-

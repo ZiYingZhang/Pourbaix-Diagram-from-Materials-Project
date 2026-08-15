@@ -138,8 +138,8 @@ class PourbaixApp(QWidget):
 
         # Elements / ratios
         r = add_row(QLabel('Elements (comma separated):'))
-        self.elements_input = QLineEdit('Ti'); r.addWidget(self.elements_input)
-        r = add_row(QLabel('Ratios (comma separated):'))
+        self.elements_input = QLineEdit('Ti,O'); r.addWidget(self.elements_input)
+        r = add_row(QLabel('Ratios (comma separated; H/O none):'))
         self.ratios_input = QLineEdit('1.0'); r.addWidget(self.ratios_input)
         # API key
         r = add_row(QLabel('API Key:'))
@@ -541,6 +541,7 @@ def run_self_test():
         'pymatgen.core.entries',
         'pymatgen.analysis.pourbaix_diagram',
         'mp_api.client',
+        'mp_api.client.contribs.client',
         'PyQt5.QtWidgets',
         'matplotlib',
         'shapely',
@@ -551,6 +552,18 @@ def run_self_test():
     for module_name in critical_modules:
         importlib.import_module(module_name)
     print(f'SELF-TEST PASS: Pourbaix GUI {APP_VERSION}; {len(critical_modules)} critical modules imported')
+    return 0
+
+
+def run_contribs_probe():
+    try:
+        from mp_api.client.contribs.client import ContribsClient
+
+        ContribsClient(api_key="a" * 32)
+    except Exception as exc:
+        print(f"CONTRIBS-PROBE FAIL: {exc}")
+        return 1
+    print("CONTRIBS-PROBE PASS")
     return 0
 
 
@@ -584,4 +597,6 @@ if __name__=='__main__':
         pass
     if '--self-test' in sys.argv:
         sys.exit(run_self_test())
+    if '--contribs-probe' in sys.argv:
+        sys.exit(run_contribs_probe())
     sys.exit(run_gui(smoke='--gui-smoke' in sys.argv))

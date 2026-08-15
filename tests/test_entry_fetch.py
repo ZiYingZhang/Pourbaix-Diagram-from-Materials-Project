@@ -17,6 +17,7 @@ class ControlledMPRester:
         self.pourbaix_calls = 0
         self.ion_calls = 0
         self.selected_ion_records = None
+        self.contribs = object()
 
     def get_pourbaix_entries(self, _elements):
         self.pourbaix_calls += 1
@@ -131,3 +132,13 @@ def test_gui_entry_fetch_uses_targeted_retry_and_updates_metrics(qapplication, m
         assert window._last_fetch_seconds >= 0
     finally:
         window.close()
+
+
+def test_missing_contribs_client_raises_actionable_error():
+    client = ControlledMPRester([["entry"]])
+    client.contribs = None
+
+    with pytest.raises(RuntimeError, match="could not be initialized"):
+        fetch_pourbaix_entries(client, ["Ti"])
+
+    assert client.pourbaix_calls == 0

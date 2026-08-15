@@ -4,10 +4,10 @@ from pourbaix_core import InputValidationError
 from pourbaix_gui_R3 import PourbaixApp
 
 
-def test_gui_defaults_to_single_titanium_composition(qapplication):
+def test_gui_defaults_to_titanium_oxide_system_with_one_titanium_ratio(qapplication):
     window = PourbaixApp()
     try:
-        assert window.elements_input.text() == "Ti"
+        assert window.elements_input.text() == "Ti,O"
         assert window.ratios_input.text() == "1.0"
     finally:
         window.close()
@@ -34,4 +34,3 @@ def test_invalid_ratio_count_is_rejected_before_entry_fetch(qapplication, action
         assert isinstance(errors[0], InputValidationError)
     finally:
         window.close()
-

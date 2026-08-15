@@ -6,6 +6,7 @@ from dataclasses import dataclass
 import math
 from types import MethodType
 from typing import Any
+import warnings as _warnings
 
 from pymatgen.core import Element
 
@@ -55,8 +56,52 @@ def _is_missing_ion_field_error(exc: BaseException) -> bool:
     }
 
 
+_CAPTURED_WARNINGS: list[str] = []
+_ORIGINAL_SHOWWARNING = _warnings.showwarning
+
+
+def _record_warning(
+    message: Any,
+    category: type[Warning],
+    filename: str,
+    lineno: int,
+    file: Any = None,
+    line: str | None = None,
+) -> None:
+    formatted = _warnings.formatwarning(message, category, filename, lineno, line)
+    _CAPTURED_WARNINGS.append(formatted.strip())
+    try:
+        import logging
+
+        logging.getLogger("pourbaix_core.warnings").warning("%s", formatted.strip())
+    except Exception:
+        pass
+    _ORIGINAL_SHOWWARNING(message, category, filename, lineno, file, line)
+
+
+def install_warning_capture() -> None:
+    """Route warnings through the local log so swallowed client errors stay visible."""
+
+    _warnings.showwarning = _record_warning
+
+
+def last_captured_warning() -> str | None:
+    return _CAPTURED_WARNINGS[-1] if _CAPTURED_WARNINGS else None
+
+
 def fetch_pourbaix_entries(mpr: Any, elements: list[str]) -> FetchResult:
     """Fetch entries, retrying once only for empty or malformed ion data."""
+
+    contribs = getattr(mpr, "contribs", None)
+    if contribs is None:
+        reason = last_captured_warning() or (
+            "MPContribs initialization returned None without a captured warning."
+        )
+        raise RuntimeError(
+            "Materials Project ion reference service (MPContribs) could not be initialized. "
+            "Check network access to contribs-api.materialsproject.org and the API key. "
+            f"Details: {reason}"
+        )
 
     try:
         entries = mpr.get_pourbaix_entries(elements)
@@ -115,8 +160,8 @@ def _parse_ratios(text: str, closed_elements: tuple[str, ...]) -> dict[str, floa
     parts = [part.strip() for part in text.split(",")] if text.strip() else []
     if len(parts) != len(closed_elements) or any(not part for part in parts):
         raise InputValidationError(
-            "Ratios: enter exactly one ratio for each non-H/O element "
-            f"({', '.join(closed_elements)})."
+            "Ratios: enter exactly one positive ratio per non-H/O element "
+            f"({', '.join(closed_elements)}); H and O are open species and take no ratio."
         )
     try:
         values = tuple(float(part) for part in parts)
@@ -158,3 +203,6 @@ def parse_inputs(
         ph_range=_parse_range(ph_text, "pH range"),
         potential_range=_parse_range(potential_text, "Potential range"),
     )
+
+
+install_warning_capture()

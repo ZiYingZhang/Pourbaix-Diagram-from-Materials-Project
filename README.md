@@ -10,7 +10,7 @@ Paste your own Materials Project API key at runtime. The app requires internet a
 
 For a first calculation, use:
 
-- Elements: `Ti`
+- Elements: `Ti,O`
 - Ratios: `1.0`
 - pH range: `0,14`
 - Potential range: `-2,4` V versus SHE
@@ -26,6 +26,7 @@ H and O are open species in the Pourbaix formalism. They may appear in the API c
 - Figure export to PNG, JPEG, TIFF, and SVG
 - Exactly one sanitation retry for targeted malformed ion-reference records
 - Runtime diagnostics, entry caching, `--self-test`, and `--gui-smoke`
+- Clear diagnostics when the MPContribs ion-reference service cannot be initialized
 - Per-user logs at `%LOCALAPPDATA%\PourbaixGUI\logs\pourbaix_gui_R3_runtime.log`
 
 ## Scientific contract

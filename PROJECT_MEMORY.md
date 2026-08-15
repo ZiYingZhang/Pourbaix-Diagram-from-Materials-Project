@@ -12,9 +12,9 @@ Last updated: 2026-08-15
 
 ## Current handoff
 
-- Checkpoint: candidate onedir/ZIP release passed; final documentation commit and clean rebuild are next.
-- Last evidence: release automation passed 41 tests, all source/packaged/extracted smokes, module and forbidden-file checks; candidate manifest is `_release/R3.0/release-manifest.json`.
-- Next task: commit this evidence routing, run the same release command from the final clean commit, then publish the final ZIP and manifest.
+- Checkpoint: R3.1 candidate addressing the TiO2 default and MPContribs diagnostics is in progress.
+- Last evidence: 43 tests pass; venv `ContribsClient` initializes, so the packaged failure was frozen-runtime specific and is now surfaced through warnings capture plus a clear error.
+- Next task: run packaged `--contribs-probe`, rebuild the final ZIP, then publish.
 - Branch: `codex/r3-compatibility-release`.
 
 ## Non-negotiable behavior
