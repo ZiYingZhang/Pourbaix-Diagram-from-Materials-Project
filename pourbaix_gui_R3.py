@@ -1,12 +1,28 @@
 import sys, os, re, time, logging
-from typing import List, Tuple, Any, Dict
+from importlib.metadata import version
+from typing import List
 
-R2_VERSION = "R2.8"
+APP_VERSION = "R3.0"
 
 _BASE_DIR = os.path.dirname(sys.executable) if getattr(sys, 'frozen', False) else os.path.dirname(__file__)
-log_path = os.path.join(_BASE_DIR, 'pourbaix_gui_R2_runtime.log')
+
+def _runtime_log_path():
+    local_app_data = os.environ.get('LOCALAPPDATA')
+    if not local_app_data:
+        local_app_data = os.path.join(os.path.expanduser('~'), 'AppData', 'Local')
+    log_dir = os.path.join(local_app_data, 'PourbaixGUI', 'logs')
+    os.makedirs(log_dir, exist_ok=True)
+    return os.path.join(log_dir, 'pourbaix_gui_R3_runtime.log')
+
+log_path = _runtime_log_path()
 logging.basicConfig(filename=log_path, level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
-_LOG = logging.getLogger("pourbaix_gui_R2")
+_LOG = logging.getLogger("pourbaix_gui_R3")
+
+def runtime_versions():
+    return {
+        distribution: version(distribution)
+        for distribution in ("mp-api", "pymatgen", "pymatgen-core")
+    }
 
 from PyQt5.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QMessageBox, QFileDialog, QFontComboBox, QComboBox, QCheckBox, QColorDialog, QCompleter)
 from PyQt5.QtCore import QLocale
@@ -14,6 +30,8 @@ from pymatgen.analysis.pourbaix_diagram import PourbaixDiagram, PourbaixPlotter
 from shapely.geometry import Polygon, box
 import pandas as pd
 import traceback
+
+from pourbaix_core import fetch_pourbaix_entries, parse_inputs
 
 # Lazy matplotlib backend selection
 _SELECTED_BACKEND = None
@@ -29,25 +47,10 @@ def _ensure_matplotlib():
     import matplotlib.pyplot as plt
     return plt
 
-def _r2_sanitize_ion_record(d: Dict[str, Any]) -> Dict[str, Any]:
-    try:
-        if not isinstance(d, dict):
-            return d
-        data = d.get('data') or {}
-        if isinstance(data, dict):
-            for k in list(data.keys()):
-                if data[k] in (None, [], {}, "") and k not in ("MajElements", "RefSolid"):
-                    data.pop(k, None)
-        d['data'] = data
-    except Exception as e:
-        try: _LOG.warning('sanitize fail: %s', e)
-        except Exception: pass
-    return d
-
 class PourbaixApp(QWidget):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Pourbaix Diagram Automation Tool (R2.8)")
+        self.setWindowTitle("Pourbaix Diagram Automation Tool (R3.0)")
         # Default line colors (Hydrogen red, Oxygen blue)
         self.h_color = "#FF0000"
         self.o_color = "#0070C0"
@@ -135,9 +138,9 @@ class PourbaixApp(QWidget):
 
         # Elements / ratios
         r = add_row(QLabel('Elements (comma separated):'))
-        self.elements_input = QLineEdit('Ti,O'); r.addWidget(self.elements_input)
+        self.elements_input = QLineEdit('Ti'); r.addWidget(self.elements_input)
         r = add_row(QLabel('Ratios (comma separated):'))
-        self.ratios_input = QLineEdit('0.3333,0.6667'); r.addWidget(self.ratios_input)
+        self.ratios_input = QLineEdit('1.0'); r.addWidget(self.ratios_input)
         # API key
         r = add_row(QLabel('API Key:'))
         self.api_input = QLineEdit(); self.api_input.setEchoMode(QLineEdit.Password); r.addWidget(self.api_input)
@@ -250,6 +253,14 @@ class PourbaixApp(QWidget):
 
     # (Removed legacy duplicated _build_ui and duplicate helper methods.)
 
+    def _parse_inputs_from_ui(self):
+        return parse_inputs(
+            self.elements_input.text(),
+            self.ratios_input.text(),
+            self.ph_input.text(),
+            self.e_input.text(),
+        )
+
     def _safe_get_entries(self, api_key:str, elements:List[str]):
         start = time.time(); self._last_sanitation_retry = False
         # In frozen GUI builds stdout/stderr may be None; disable tqdm progress bars
@@ -269,31 +280,13 @@ class PourbaixApp(QWidget):
         if cached and (time.time()-cached['ts'] <= self._cache_ttl):
             self._last_entries_count = len(cached['entries']); self._last_fetch_seconds = 0.0; return cached['entries']
         with MPRester(api_key) as mpr:
-            try:
-                entries = mpr.get_pourbaix_entries(elements)
-                if entries:
-                    self._entries_cache[key]={'entries':entries,'ts':time.time()}; self._last_entries_count=len(entries); self._last_fetch_seconds=time.time()-start; return entries
-                ion_raw = mpr.get_ion_reference_data(); sanitized=[]
-                for d in ion_raw or []:
-                    try:
-                        d=_r2_sanitize_ion_record(d); data=d.get('data',{}) if isinstance(d,dict) else {}
-                        if data.get('MajElements') and data.get('RefSolid'): sanitized.append(d)
-                    except Exception: continue
-                from types import MethodType
-                def _patched(this, chemsys):
-                    cs=[c.capitalize() for c in (chemsys if isinstance(chemsys,(list,tuple)) else chemsys.split('-'))]; out=[]
-                    for rec in sanitized:
-                        try:
-                            data=rec.get('data',{})
-                            if data.get('MajElements','').capitalize() in cs: out.append(rec)
-                        except Exception: continue
-                    return out
-                mpr.get_ion_reference_data_for_chemsys = MethodType(_patched, mpr)
-                self._last_sanitation_retry = True
-                entries2 = mpr.get_pourbaix_entries(elements)
-                if not entries2: raise RuntimeError('No pourbaix entries after sanitation retry.')
-                self._entries_cache[key]={'entries':entries2,'ts':time.time()}; self._last_entries_count=len(entries2); self._last_fetch_seconds=time.time()-start; return entries2
-            except Exception: raise
+            result = fetch_pourbaix_entries(mpr, elements)
+        entries = result.entries
+        self._last_sanitation_retry = result.used_sanitation_retry
+        self._entries_cache[key]={'entries':entries,'ts':time.time()}
+        self._last_entries_count=len(entries)
+        self._last_fetch_seconds=time.time()-start
+        return entries
 
     def _clip_polygon(self, pH, E, pH_min, pH_max, E_min, E_max):
         poly = Polygon(zip(pH,E)); win = box(pH_min,E_min,pH_max,E_max); cl = poly.intersection(win)
@@ -303,15 +296,13 @@ class PourbaixApp(QWidget):
         return [], []
 
     def plot_pourbaix(self):
+        self._invalidate_result()
         try:
+            parsed = self._parse_inputs_from_ui()
             plt = _ensure_matplotlib()
-            elements=[e.strip() for e in self.elements_input.text().split(',') if e.strip()]
-            ratios=[float(r.strip()) for r in self.ratios_input.text().split(',') if r.strip()]
-            comp_dict=dict(zip(elements, ratios))
-            # cache for export filename usage
-            self._last_elements = elements
-            self._last_comp_dict = comp_dict
-            api_key=self._resolve_api_key(); ph_range=[float(x) for x in self.ph_input.text().split(',')]; e_range=[float(x) for x in self.e_input.text().split(',')]
+            elements=list(parsed.elements)
+            comp_dict=parsed.comp_dict
+            api_key=self._resolve_api_key(); ph_range=list(parsed.ph_range); e_range=list(parsed.potential_range)
             if not api_key: QMessageBox.warning(self,'API Key Required','Enter your Materials Project API key.'); return
             entries=self._safe_get_entries(api_key,elements)
             pbx=PourbaixDiagram(entries, comp_dict=comp_dict); plotter=PourbaixPlotter(pbx); ax=plotter.get_pourbaix_plot(limits=[ph_range,e_range])
@@ -393,15 +384,20 @@ class PourbaixApp(QWidget):
                         txt.set_bbox(None)
                     except Exception:
                         pass
-            fig=ax.figure; fig.canvas.draw_idle(); fig.show(); self._last_figure=fig
+            fig=ax.figure; fig.canvas.draw_idle(); fig.show()
+            self._last_figure=fig; self._last_elements=elements; self._last_comp_dict=comp_dict
         except Exception as e:
             self._report_error('Error', e)
 
+    def _invalidate_result(self):
+        self._last_figure = None
+        self._last_elements = []
+        self._last_comp_dict = {}
+
     def list_species_labels(self):
         try:
-            elements=[e.strip() for e in self.elements_input.text().split(',') if e.strip()]
-            if not elements:
-                QMessageBox.information(self,'Info','Please enter element list (e.g. Ti,O) first.'); return
+            parsed = self._parse_inputs_from_ui()
+            elements=list(parsed.elements)
             api_key=self._resolve_api_key()
             if not api_key:
                 QMessageBox.warning(self,'API Key Required','Enter API key first.'); return
@@ -426,10 +422,10 @@ class PourbaixApp(QWidget):
 
     def export_data(self):
         try:
-            elements=[e.strip() for e in self.elements_input.text().split(',') if e.strip()]; ratios=[float(r.strip()) for r in self.ratios_input.text().split(',') if r.strip()]
-            comp_dict=dict(zip(elements, ratios)); api_key=self._resolve_api_key()
+            parsed = self._parse_inputs_from_ui()
+            elements=list(parsed.elements); comp_dict=parsed.comp_dict; api_key=self._resolve_api_key()
             if not api_key: QMessageBox.warning(self,'API Key Required','Enter your Materials Project API key.'); return
-            ph_range=[float(x) for x in self.ph_input.text().split(',')]; e_range=[float(x) for x in self.e_input.text().split(',')]
+            ph_range=list(parsed.ph_range); e_range=list(parsed.potential_range)
             entries=self._safe_get_entries(api_key,elements); pbx=PourbaixDiagram(entries, comp_dict=comp_dict); plotter=PourbaixPlotter(pbx)
             rows=[]
             for entry in pbx.stable_entries:
@@ -439,7 +435,7 @@ class PourbaixApp(QWidget):
                     pH,E=zip(*verts); pH=list(pH)+[pH[0]]; E=list(E)+[E[0]]; pH_c,E_c=self._clip_polygon(pH,E,ph_range[0],ph_range[1],e_range[0],e_range[1])
                     for x,y in zip(pH_c,E_c): rows.append({'Entry':str(entry),'pH':x,'E':y})
             if not rows: QMessageBox.warning(self,'No Data','No stable entries found.'); return
-            df=pd.DataFrame(rows); suffix=''.join([f"{el}{comp_dict[el]}" for el in elements]); default_name=f"pourbaix_boundaries_{suffix}"
+            df=pd.DataFrame(rows); suffix=''.join([f"{el}{ratio}" for el, ratio in comp_dict.items()]); default_name=f"pourbaix_boundaries_{suffix}"
             path, sel = QFileDialog.getSaveFileName(self, 'Export Data', default_name, 'CSV (*.csv);;Excel (*.xlsx);;Text (*.txt)')
             if not path:
                 return
@@ -496,7 +492,7 @@ class PourbaixApp(QWidget):
             suffix = ''
             try:
                 if self._last_elements and self._last_comp_dict:
-                    suffix = ''.join([f"{el}{self._last_comp_dict.get(el,'')}" for el in self._last_elements])
+                    suffix = ''.join([f"{el}{ratio}" for el, ratio in self._last_comp_dict.items()])
             except Exception:
                 suffix = ''
             default_name = f"pourbaix_diagram_{suffix}.png" if suffix else 'pourbaix_diagram.png'
@@ -520,12 +516,13 @@ class PourbaixApp(QWidget):
 
     def show_diagnostics(self):
         try:
-            import matplotlib, pymatgen
-            from mp_api import __version__ as mp_api_ver
-            msg=(f'R2_VERSION: {R2_VERSION}\n'
+            import matplotlib
+            versions = runtime_versions()
+            msg=(f'APP_VERSION: {APP_VERSION}\n'
                  f'matplotlib backend: {matplotlib.get_backend()}\n'
-                 f'mp-api: {mp_api_ver}\n'
-                 f'pymatgen: {pymatgen.__version__}\n'
+                 f'mp-api: {versions["mp-api"]}\n'
+                 f'pymatgen: {versions["pymatgen"]}\n'
+                 f'pymatgen-core: {versions["pymatgen-core"]}\n'
                  f'Last entries count: {self._last_entries_count}\n'
                  f'Last fetch seconds: {self._last_fetch_seconds:.2f}\n'
                  f'Used sanitation retry: {self._last_sanitation_retry}\n'
@@ -537,6 +534,44 @@ class PourbaixApp(QWidget):
     def clear_cache(self):
         self._entries_cache.clear(); QMessageBox.information(self,'Cache','Entries cache cleared.')
 
+def run_self_test():
+    import importlib
+
+    critical_modules = (
+        'pymatgen.core.entries',
+        'pymatgen.analysis.pourbaix_diagram',
+        'mp_api.client',
+        'PyQt5.QtWidgets',
+        'matplotlib',
+        'shapely',
+        'pandas',
+        'openpyxl',
+        'certifi',
+    )
+    for module_name in critical_modules:
+        importlib.import_module(module_name)
+    print(f'SELF-TEST PASS: Pourbaix GUI {APP_VERSION}; {len(critical_modules)} critical modules imported')
+    return 0
+
+
+def run_gui(smoke=False):
+    from PyQt5.QtCore import QTimer
+
+    try:
+        QLocale.setDefault(QLocale(QLocale.English, QLocale.UnitedStates))
+    except Exception:
+        pass
+    app = QApplication(sys.argv)
+    win = PourbaixApp()
+    win.show()
+    if smoke:
+        QTimer.singleShot(250, app.quit)
+    exit_code = app.exec_()
+    if smoke:
+        print('GUI-SMOKE PASS: window constructed, event loop processed, and application closed')
+    return exit_code
+
+
 if __name__=='__main__':
     # In frozen GUI builds (console=False) sys.stdout/stderr may be None which
     # causes libraries like tqdm to fail when they attempt to write to them.
@@ -547,8 +582,6 @@ if __name__=='__main__':
             sys.stderr = open(os.devnull, 'w')
     except Exception:
         pass
-    try:
-        QLocale.setDefault(QLocale(QLocale.English, QLocale.UnitedStates))
-    except Exception:
-        pass
-    app=QApplication(sys.argv); win=PourbaixApp(); win.show(); sys.exit(app.exec_())
+    if '--self-test' in sys.argv:
+        sys.exit(run_self_test())
+    sys.exit(run_gui(smoke='--gui-smoke' in sys.argv))

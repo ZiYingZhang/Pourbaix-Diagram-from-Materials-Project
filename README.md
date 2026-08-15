@@ -1,29 +1,69 @@
-# Pourbaix-Diagram-from-Materials-Project
+# Pourbaix GUI R3.0
 
-## What is this?
+Pourbaix GUI is a Windows desktop application for creating pH-potential stability diagrams from Materials Project data through pymatgen. R3.0 restores the historical R2.8 source, upgrades the runtime to Python 3.13, fixes open-species composition handling, and adds reproducible tests and packaging.
 
-Pourbaix GUI R2 — PyQt5 desktop app to generate Pourbaix (pH–potential) diagrams using Materials Project via pymatgen. Interactive UI for multi‑element systems, tunable plot styling, and export of images and boundary data. The packaged Windows build includes the frozen executable and runtime files so non‑Python users can run the tool directly.
+## Download and run
 
-## Key features
+Download `pourbaix_gui_R3-win64.zip` from the GitHub R3.0 release, extract the whole archive, and launch `pourbaix_gui_R3\pourbaix_gui_R3.exe`. Keep the executable beside its `_internal` directory. No Python installation or administrator rights are intended to be required.
 
-- Interactive GUI for building Pourbaix diagrams (elements, ratios, pH/potential ranges)
-- Export diagram images (PNG / JPEG / TIFF / SVG) and boundary data (CSV / XLSX / TXT)
-- Robust handling of API fetches with local caching and sanitized ion records
+Paste your own Materials Project API key at runtime. The app requires internet access for calculations and does not intentionally store the key in logs or release artifacts.
 
-## Quick start
+For a first calculation, use:
 
-1. Download and extract `pourbaix_gui_R2-win64.zip`.
-2. Launch `pourbaix_gui_R2.exe` and paste your Materials Project API key into the API Key field.
-3. Enter elements (comma separated) and ratios, set pH/potential ranges, then click “Generate Pourbaix Diagram”.
-4. Use “Export Data” or “Export Figure Image” to save outputs to a writable folder (Documents/Desktop recommended).
+- Elements: `Ti`
+- Ratios: `1.0`
+- pH range: `0,14`
+- Potential range: `-2,4` V versus SHE
 
-## Notes
+H and O are open species in the Pourbaix formalism. They may appear in the API chemical system, but they must not receive ratios and are never included in `PourbaixDiagram.comp_dict`.
 
-- The app requires internet access and a valid Materials Project API key. Do not distribute API keys with the package.
-- If export fails, choose a user-writable folder (Documents or Desktop) and send `pourbaix_gui_R2_runtime.log` for debugging.
-  
-The interface of this GUI is presented as follows.
-<img width="1915" height="1029" alt="Interface" src="https://github.com/user-attachments/assets/4599e365-2ebf-4aff-b693-0fdfca02f8a4" />
+## Features
 
-Example of TiO2.
-<img width="4125" height="2438" alt="pourbaix_diagram_Ti0 3333O0 6667" src="https://github.com/user-attachments/assets/b6e7e6c0-33c1-401f-9e3f-98fbee3f7c48" />
+- Multi-element Pourbaix diagrams using Materials Project and pymatgen
+- Validated element symbols, ratios, pH bounds, and potential bounds before network access
+- Custom fonts, line widths, water-line colors, labels, fills, DPI, and transparency
+- Boundary export to CSV, XLSX, and tab-separated TXT
+- Figure export to PNG, JPEG, TIFF, and SVG
+- Exactly one sanitation retry for targeted malformed ion-reference records
+- Runtime diagnostics, entry caching, `--self-test`, and `--gui-smoke`
+- Per-user logs at `%LOCALAPPDATA%\PourbaixGUI\logs\pourbaix_gui_R3_runtime.log`
+
+## Scientific contract
+
+pH is dimensionless and potential is volts versus SHE. R3 does not implement a custom thermodynamic or energy model: diagram construction and ratio normalization remain delegated to the exact pymatgen packages recorded in `requirements-lock-py313-win64.txt`. Plot styling does not alter exported boundary coordinates. A failed calculation invalidates the previous figure so stale results cannot be exported under new metadata.
+
+## Develop and test
+
+The confirmed development runtime is Windows x64 with CPython 3.13.15.
+
+```powershell
+C:\Users\hp\AppData\Local\Python\bin\python3.13.exe -m venv .venv-pourbaix-py313
+.\.venv-pourbaix-py313\Scripts\python.exe -m pip install --no-cache-dir -r requirements-lock-py313-win64.txt
+.\.venv-pourbaix-py313\Scripts\python.exe -m pytest -q
+.\.venv-pourbaix-py313\Scripts\python.exe pourbaix_gui_R3.py --self-test
+.\.venv-pourbaix-py313\Scripts\python.exe pourbaix_gui_R3.py --gui-smoke
+```
+
+The VS Code workspace settings point the Python extension and Code Runner at `.venv-pourbaix-py313`.
+
+## Build the Windows release
+
+From a clean Git working tree:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\build_release.ps1
+```
+
+The script validates staging paths before recursive cleanup, runs the full test and smoke suite, optionally performs a live Ti request when an API key is present, builds the PyInstaller onedir package, checks for `pymatgen/core/entries`, rejects key/log files, creates and extracts the ZIP, reruns packaged self-test, and writes `_release\R3.0\release-manifest.json` with size, entries, SHA-256, versions, and acceptance status.
+
+Clean-machine validation on a separate Windows x64 system without Python remains an explicit Pending external gate until performed against the final archive hash.
+
+## Documentation
+
+- [Windows user guide](USER_GUIDE.md)
+- [R3 design](docs/superpowers/specs/2026-08-15-pourbaix-r3-compatibility-design.md)
+- [Scientific contract](docs/numerical-contract.md)
+- [Acceptance checklist](docs/acceptance-checklist.md)
+- [R2 recovery record](docs/r2-recovery.md)
+
+The original screenshots and example diagrams remain in the repository as historical visual examples.

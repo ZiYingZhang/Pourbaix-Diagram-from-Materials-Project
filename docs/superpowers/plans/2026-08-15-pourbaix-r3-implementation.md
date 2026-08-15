@@ -26,16 +26,16 @@
 - [x] Copy the byte-identical R2 source and documents from the located historical project.
 - [x] Record SHA-256 values and the broken legacy-interpreter evidence in `docs/r2-recovery.md`.
 - [x] Confirm the active R3 source initially matches the recovered R2 source, apart from its filename.
-- [ ] Commit the recovery as an independent historical checkpoint.
+- [x] Commit the recovery as an independent historical checkpoint.
 
 ### Task 2: Establish the Python 3.13 dependency baseline
 
 **Files:** create `requirements.in`, `requirements-dev.in`, `requirements-lock-py313-win64.txt`.
 
-- [ ] Create `.venv-pourbaix-py313` with the managed Python 3.13.15 executable.
-- [ ] Install `mp-api==0.46.4`, pymatgen, pymatgen-core, mpcontribs-client, PyQt5, NumPy, pandas, Matplotlib, Shapely, openpyxl, certifi, pytest, and PyInstaller.
-- [ ] Run an import probe for `pymatgen.core.entries`, `pymatgen.analysis.pourbaix_diagram`, `mp_api.client`, PyQt5, Shapely, pandas, and Matplotlib.
-- [ ] Freeze the complete resolved environment and verify a second import probe from the lock file metadata.
+- [x] Create `.venv-pourbaix-py313` with the managed Python 3.13.15 executable.
+- [x] Install `mp-api==0.46.4`, pymatgen, pymatgen-core, mpcontribs-client, PyQt5, NumPy, pandas, Matplotlib, Shapely, openpyxl, certifi, pytest, and PyInstaller.
+- [x] Run an import probe for `pymatgen.core.entries`, `pymatgen.analysis.pourbaix_diagram`, `mp_api.client`, PyQt5, Shapely, pandas, and Matplotlib.
+- [x] Freeze the complete resolved environment and verify a second import probe from the lock file metadata.
 
 ### Task 3: Implement the scientific input contract test-first
 
@@ -43,11 +43,11 @@
 
 **Interface:** `parse_inputs(elements_text, ratios_text, ph_text, potential_text) -> PourbaixInputs`, where `PourbaixInputs.elements` contains the validated API chemical system and `PourbaixInputs.comp_dict` contains only non-H/O elements.
 
-- [ ] Write table-driven tests proving valid Ti, Ti/O, and multi-metal parsing plus rejection of invalid symbols, duplicate elements, ratio-count mismatch, non-positive/non-finite ratios, malformed ranges, and unordered ranges.
-- [ ] Run the focused tests and confirm they fail because `pourbaix_core` is absent.
-- [ ] Implement the immutable parsed-input value object and minimal validation.
-- [ ] Run the focused tests and confirm they pass.
-- [ ] Wire plot, boundary export, and species listing to validate before resolving the API key or invoking network code; set defaults to `Ti` and `1.0`.
+- [x] Write table-driven tests proving valid Ti, Ti/O, and multi-metal parsing plus rejection of invalid symbols, duplicate elements, ratio-count mismatch, non-positive/non-finite ratios, malformed ranges, and unordered ranges.
+- [x] Run the focused tests and confirm they fail because `pourbaix_core` is absent.
+- [x] Implement the immutable parsed-input value object and minimal validation.
+- [x] Run the focused tests and confirm they pass.
+- [x] Wire plot, boundary export, and species listing to validate before resolving the API key or invoking network code; set defaults to `Ti` and `1.0`.
 
 ### Task 4: Implement targeted sanitation retry and stale-state invalidation test-first
 
@@ -55,20 +55,20 @@
 
 **Interfaces:** `fetch_pourbaix_entries(mpr, elements) -> FetchResult(entries, used_sanitation_retry)` and `PourbaixApp._invalidate_result() -> None`.
 
-- [ ] Write controlled-client tests for first-call success, empty-result retry, targeted missing-ion-field exception retry, unrelated exception propagation, and exactly one retry.
-- [ ] Run and observe the expected failures, then implement the smallest fetch helper using a patched ion-reference selector only for the retry.
-- [ ] Write a headless Qt test proving a failed new plot clears the prior figure/elements/composition before export can use them.
-- [ ] Run and observe the failure, implement `_invalidate_result`, then rerun focused and full tests.
+- [x] Write controlled-client tests for first-call success, empty-result retry, targeted missing-ion-field exception retry, unrelated exception propagation, and exactly one retry.
+- [x] Run and observe the expected failures, then implement the smallest fetch helper using a patched ion-reference selector only for the retry.
+- [x] Write a headless Qt test proving a failed new plot clears the prior figure/elements/composition before export can use them.
+- [x] Run and observe the failure, implement `_invalidate_result`, then rerun focused and full tests.
 
 ### Task 5: Add runtime self-test, local logging, and reproducible packaging
 
 **Files:** modify `pourbaix_gui_R3.py`; create `pourbaix_gui_R3.spec`, `.vscode/settings.json`, `scripts/build_release.ps1`, `tests/test_self_test.py`, `tests/test_release_safety.py`.
 
-- [ ] Write a subprocess test requiring `--self-test` to exit 0 without constructing a GUI and a log-path test using a temporary `LOCALAPPDATA`.
-- [ ] Observe failures, then add `run_self_test()` and user-local log directory initialization without printing secrets.
-- [ ] Replace the absolute R2 spec with environment-relative module/data collection and include package metadata, docs, and licenses.
+- [x] Write a subprocess test requiring `--self-test` to exit 0 without constructing a GUI and a log-path test using a temporary `LOCALAPPDATA`.
+- [x] Observe failures, then add `run_self_test()` and user-local log directory initialization without printing secrets.
+- [x] Replace the absolute R2 spec with environment-relative module/data collection and include package metadata, docs, and licenses.
 - [ ] Add PowerShell release orchestration that resolves and validates `_build/R3.0` and `_release/R3.0` before cleaning, builds onedir, runs packaged self-test, checks `pymatgen/core/entries`, archives, extracts to a fresh staging folder, reruns self-test, and writes `release-manifest.json`.
-- [ ] Add VS Code interpreter and Code Runner settings targeting `.venv-pourbaix-py313`.
+- [x] Add VS Code interpreter and Code Runner settings targeting `.venv-pourbaix-py313`.
 
 ### Task 6: Verify, document, and publish
 

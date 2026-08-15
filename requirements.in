@@ -1,0 +1,12 @@
+mp-api==0.46.4
+mpcontribs-client
+pymatgen
+pymatgen-core
+PyQt5
+matplotlib
+shapely
+pandas
+openpyxl
+numpy
+certifi
+

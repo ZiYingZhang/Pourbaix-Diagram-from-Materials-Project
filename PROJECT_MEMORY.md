@@ -12,9 +12,9 @@ Last updated: 2026-08-15
 
 ## Current handoff
 
-- Checkpoint: byte-identical R2 source and documents recovered into `legacy/R2`; R3 implementation branch created.
-- Last evidence: both legacy R2 virtual environments fail because their base Python executables no longer exist; Python 3.13.15 is available through Python Install Manager.
-- Next task: commit the recovery checkpoint and create the clean Python 3.13 environment.
+- Checkpoint: R3 implementation and release automation complete; candidate release build is next.
+- Last evidence: 40 tests passed in the Python 3.13.15 environment; source self-test and GUI smoke are covered by the suite.
+- Next task: commit a clean candidate, run `scripts/build_release.ps1`, resolve packaging findings, then perform the final clean rebuild.
 - Branch: `codex/r3-compatibility-release`.
 
 ## Non-negotiable behavior
