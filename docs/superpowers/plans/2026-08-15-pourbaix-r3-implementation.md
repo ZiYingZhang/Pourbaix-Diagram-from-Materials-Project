@@ -67,16 +67,16 @@
 - [x] Write a subprocess test requiring `--self-test` to exit 0 without constructing a GUI and a log-path test using a temporary `LOCALAPPDATA`.
 - [x] Observe failures, then add `run_self_test()` and user-local log directory initialization without printing secrets.
 - [x] Replace the absolute R2 spec with environment-relative module/data collection and include package metadata, docs, and licenses.
-- [ ] Add PowerShell release orchestration that resolves and validates `_build/R3.0` and `_release/R3.0` before cleaning, builds onedir, runs packaged self-test, checks `pymatgen/core/entries`, archives, extracts to a fresh staging folder, reruns self-test, and writes `release-manifest.json`.
+- [x] Add PowerShell release orchestration that resolves and validates `_build/R3.0` and `_release/R3.0` before cleaning, builds onedir, runs packaged self-test, checks `pymatgen/core/entries`, archives, extracts to a fresh staging folder, reruns self-test, and writes `release-manifest.json`.
 - [x] Add VS Code interpreter and Code Runner settings targeting `.venv-pourbaix-py313`.
 
 ### Task 6: Verify, document, and publish
 
 **Files:** modify `README.md`, `USER_GUIDE.md`, `docs/acceptance-checklist.md`, `PROJECT_MEMORY.md`; create `CHANGELOG.md`; generate `_release/R3.0/release-manifest.json`.
 
-- [ ] Run focused tests, full pytest, source self-test, and headless Qt construction smoke with fresh output.
-- [ ] If an API key is present, run the Ti live request without printing the key; otherwise record the gate as Skipped with reason.
-- [ ] Build from validated clean staging, run packaged and extracted smokes, inspect secrets/package contents, and record ZIP bytes, entries, SHA-256, toolchain, timestamps, and external Pending gates.
-- [ ] Update user-facing docs for Ti/1.0 inputs, log location, release download, and external-acceptance status.
+- [x] Run focused tests, full pytest, source self-test, and headless Qt construction smoke with fresh output.
+- [x] If an API key is present, run the Ti live request without printing the key; otherwise record the gate as Skipped with reason.
+- [x] Build from validated clean staging, run packaged and extracted smokes, inspect secrets/package contents, and record ZIP bytes, entries, SHA-256, toolchain, timestamps, and external Pending gates.
+- [x] Update user-facing docs for Ti/1.0 inputs, log location, release download, and external-acceptance status.
 - [ ] Inspect `git status` and diff, stage only intended source/docs/tests/metadata, commit, push the `codex/r3-compatibility-release` branch, and open a draft PR to `main`.
 - [ ] Create GitHub Release `R3.0` for the reviewed commit/tag and upload the ZIP plus `release-manifest.json`; do not upload any API key or log.

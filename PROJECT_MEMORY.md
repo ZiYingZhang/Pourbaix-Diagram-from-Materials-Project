@@ -12,9 +12,9 @@ Last updated: 2026-08-15
 
 ## Current handoff
 
-- Checkpoint: R3 implementation and release automation complete; candidate release build is next.
-- Last evidence: 40 tests passed in the Python 3.13.15 environment; source self-test and GUI smoke are covered by the suite.
-- Next task: commit a clean candidate, run `scripts/build_release.ps1`, resolve packaging findings, then perform the final clean rebuild.
+- Checkpoint: candidate onedir/ZIP release passed; final documentation commit and clean rebuild are next.
+- Last evidence: release automation passed 41 tests, all source/packaged/extracted smokes, module and forbidden-file checks; candidate manifest is `_release/R3.0/release-manifest.json`.
+- Next task: commit this evidence routing, run the same release command from the final clean commit, then publish the final ZIP and manifest.
 - Branch: `codex/r3-compatibility-release`.
 
 ## Non-negotiable behavior
@@ -30,3 +30,7 @@ Last updated: 2026-08-15
 1. Read this file and its authoritative documents.
 2. Run the latest verification commands recorded in `release-manifest.json` if present.
 3. Continue the first unchecked plan/checklist item.
+
+## Latest build evidence
+
+`_release/R3.0/release-manifest.json` is the single source for the current archive name, byte size, entry count, SHA-256, test counts, smoke exit codes, source commit, toolchain, build time, and external acceptance status. The GitHub release must upload that manifest beside the exact ZIP; do not copy an earlier candidate hash into this file.
