@@ -7,6 +7,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 $ProjectRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot ".."))
+Import-Module (Join-Path $PSScriptRoot "release_helpers.psm1") -Force
 
 function Resolve-SafeStagingPath {
     param(
@@ -117,14 +118,8 @@ foreach ($Doc in @("README.md", "USER_GUIDE.md", "THIRD_PARTY_NOTICES.md", "requ
     Copy-Item -LiteralPath (Join-Path $ProjectRoot $Doc) -Destination (Join-Path $PackageDir $Doc)
 }
 
-& $PackageExe --self-test
-if ($LASTEXITCODE -ne 0) {
-    throw "Packaged self-test failed with exit code $LASTEXITCODE."
-}
-& $PackageExe --gui-smoke
-if ($LASTEXITCODE -ne 0) {
-    throw "Packaged GUI smoke failed with exit code $LASTEXITCODE."
-}
+Invoke-CheckedGuiProcess -FilePath $PackageExe -ArgumentList @("--self-test")
+Invoke-CheckedGuiProcess -FilePath $PackageExe -ArgumentList @("--gui-smoke")
 
 $EntriesPayload = Get-ChildItem -LiteralPath $PackageDir -Recurse -Force -ErrorAction Stop |
     Where-Object { $_.Name -like "entries*" -and $_.FullName -match "pymatgen[\\/]core" } |
@@ -152,10 +147,7 @@ $ExtractedExe = Join-Path $ExtractRoot "pourbaix_gui_R3\pourbaix_gui_R3.exe"
 if (-not (Test-Path -LiteralPath $ExtractedExe -PathType Leaf)) {
     throw "Extracted executable not found: $ExtractedExe"
 }
-& $ExtractedExe --self-test
-if ($LASTEXITCODE -ne 0) {
-    throw "Extracted packaged self-test failed with exit code $LASTEXITCODE."
-}
+Invoke-CheckedGuiProcess -FilePath $ExtractedExe -ArgumentList @("--self-test")
 
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $Zip = [IO.Compression.ZipFile]::OpenRead($ArchivePath)
