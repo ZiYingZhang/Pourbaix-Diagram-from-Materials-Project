@@ -1,0 +1,10 @@
+.venv-pourbaix-py313/
+__pycache__/
+.pytest_cache/
+*.py[cod]
+*.log
+mp_api_key.txt
+_build/
+_release/
+*.spec.bak
+
