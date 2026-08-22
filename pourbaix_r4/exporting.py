@@ -84,3 +84,26 @@ def export_boundaries(
                 metadata.to_excel(writer, sheet_name="metadata", index=False)
 
     return _verified_atomic_write(Path(path), write)
+
+
+def export_figure(
+    figure,
+    path: Path,
+    image_format: Literal["png", "jpeg", "tiff", "svg"],
+    *,
+    dpi: int,
+    transparent: bool,
+) -> Path:
+    """Write an already-rendered figure without recalculating its snapshot."""
+    if image_format not in {"png", "jpeg", "tiff", "svg"}:
+        raise ExportError(f"Unsupported figure export format: {image_format}")
+    if dpi <= 0:
+        raise ExportError("Figure DPI must be greater than zero")
+
+    def write(temporary_path: Path) -> None:
+        figure.savefig(temporary_path, format=image_format, dpi=dpi, transparent=transparent)
+
+    written = _verified_atomic_write(Path(path), write)
+    if image_format == "svg" and "<svg" not in written.read_text(encoding="utf-8"):
+        raise ExportError("SVG export did not contain SVG markup")
+    return written

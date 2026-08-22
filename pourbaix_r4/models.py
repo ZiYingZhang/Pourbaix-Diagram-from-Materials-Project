@@ -35,6 +35,28 @@ class AppearanceSettings:
     """Display preferences that must not alter a calculation snapshot."""
 
     show_ion_labels: bool = True
+    ion_label_font: str = "Arial"
+    ion_label_font_size: float = 22.0
+    fill_ion_label_background: bool = False
+    ion_label_background_color: str = "#FFFFFF"
+    ion_label_background_alpha: float = 0.6
+    axis_tick_font: str = "Arial"
+    axis_tick_font_size: float = 24.0
+    x_axis_label: str = "pH"
+    x_axis_label_size: float = 28.0
+    y_axis_label: str = "E (V vs. SHE)"
+    y_axis_label_size: float = 28.0
+    spine_width: float = 1.5
+    solid_line_width: float = 2.0
+    stability_line_width: float = 2.0
+    major_tick_direction: str = "out"
+    major_tick_length: float = 8.0
+    major_tick_width: float = 1.0
+    show_minor_ticks: bool = True
+    minor_tick_length: float = 4.0
+    minor_tick_width: float = 0.5
+    hydrogen_line_color: str = "#FF0000"
+    oxygen_line_color: str = "#0070C0"
 
 
 @dataclass(frozen=True)
