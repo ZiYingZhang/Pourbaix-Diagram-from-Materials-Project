@@ -122,11 +122,12 @@ def parse_calculation_input(
 
 
 def import_legacy_element_ratio_text(elements_text: str, ratios_text: str) -> tuple[tuple[str, ...], dict[str, float]]:
-    """Accept R2/R3 comma-delimited element and closed-ratio text."""
+    """Accept R2/R3 comma text and conventional colon-delimited ratios."""
     raw_elements = tuple(part.strip() for part in elements_text.split(",")) if isinstance(elements_text, str) else ()
     elements = _validate_elements(raw_elements)
     closed_elements = tuple(element for element in elements if element not in _OPEN_SPECIES)
-    raw_ratios = tuple(part.strip() for part in ratios_text.split(",")) if isinstance(ratios_text, str) else ()
+    ratio_separator = ":" if isinstance(ratios_text, str) and "," not in ratios_text else ","
+    raw_ratios = tuple(part.strip() for part in ratios_text.split(ratio_separator)) if isinstance(ratios_text, str) else ()
     if len(raw_ratios) != len(closed_elements):
         raise InputValidationError("Ratios must provide one value for each non-H/O element")
     parsed_ratios = {element: _parse_positive_ratio(value) for element, value in zip(closed_elements, raw_ratios)}
