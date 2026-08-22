@@ -153,13 +153,13 @@ class CachedEntryService:
     def diagnostics(self) -> CacheDiagnostics: ...
 ```
 
-- [ ] Port the R3 controlled-client tests first: normal first-call success, cache hit, five-minute expiry, empty/malformed known-ion targeted retry, unrelated error propagation, and exactly one retry.
-- [ ] Add failing tests proving cache keys include the canonical selected chemical system but never the API key, and that diagnostic objects expose entry count/cache age/retry state but not secret values.
-- [ ] Run `pytest -q tests/r4/test_materials_project.py` and observe expected import failures.
-- [ ] Implement the cache and reuse the proven R3 sanitation logic without copying GUI state. Make the clock injectable for expiry tests and write sanitized traceback detail only through the app logger.
-- [ ] Add a test that `clear()` removes entries and metadata without changing a `ResultSnapshot` already held by the session.
-- [ ] Rerun focused tests and the full suite.
-- [ ] Commit: `refactor: isolate R4 Materials Project entry service`.
+- [x] Port the R3 controlled-client tests first: normal first-call success, cache hit, five-minute expiry, empty/malformed known-ion targeted retry, unrelated error propagation, and exactly one retry.
+- [x] Add failing tests proving cache keys include the canonical selected chemical system but never the API key, and that diagnostic objects expose entry count/cache age/retry state but not secret values.
+- [x] Run `pytest -q tests/r4/test_materials_project.py` and observe expected import failures.
+- [x] Implement the cache and reuse the proven R3 sanitation logic without copying GUI state. Make the clock injectable for expiry tests and write sanitized traceback detail only through the app logger.
+- [x] Add a test that `clear()` removes entries and metadata without changing a `ResultSnapshot` already held by the session.
+- [x] Rerun focused tests and the full suite.
+- [x] Commit: `refactor: isolate R4 Materials Project entry service`.
 
 ### Task 5: Build snapshot-safe calculation, clipping, session lifecycle, and data export
 
@@ -178,14 +178,14 @@ class CalculationSession:
 export_boundaries(snapshot: ResultSnapshot, path: Path, file_format: Literal["csv", "xlsx", "txt"]) -> Path
 ```
 
-- [ ] Write failing calculation tests with a small deterministic stub diagram/entries: labels and vertices are constructed once, polygons are clipped to the requested pH/potential rectangle, and `comp_dict` excludes H/O.
+- [x] Write failing calculation tests with a small deterministic stub diagram/entries: labels and vertices are constructed once, polygons are clipped to the requested pH/potential rectangle, and `comp_dict` excludes H/O.
 - [ ] Write session tests: successful replacement enables exports; formula/ratio/range change marks result stale; failed calculation clears diagram metadata/exportability; appearance and language changes preserve a valid snapshot byte-for-byte.
-- [ ] Write export tests that create CSV/XLSX/TXT, read each back, and require fixed English headers such as `domain_label`, `pH`, and `potential_V_SHE`. Assert no fetch function is called by an export.
-- [ ] Run the three focused test modules and confirm failure.
-- [ ] Port only the mature R3/pymatgen diagram construction and Shapely clipping logic into `calculate_snapshot`. Store plain immutable boundary records for export and a non-exported diagram/rendering payload needed by plotting. Do not derive data from Matplotlib artists.
-- [ ] Implement atomic temporary-file write/replace where the format permits, non-empty output verification, and user-safe `ExportError` failures. Preserve snapshot input and generated-at metadata in a clearly separated, non-secret metadata sheet/section.
+- [x] Write export tests that create CSV/XLSX/TXT, read each back, and require fixed English headers such as `domain_label`, `pH`, and `potential_V_SHE`. Assert no fetch function is called by an export.
+- [x] Run the three focused test modules and confirm failure.
+- [x] Port only the mature R3/pymatgen diagram construction and Shapely clipping logic into `calculate_snapshot`. Store plain immutable boundary records for export and a non-exported diagram/rendering payload needed by plotting. Do not derive data from Matplotlib artists.
+- [x] Implement atomic temporary-file write/replace where the format permits, non-empty output verification, and user-safe `ExportError` failures. Preserve snapshot input and generated-at metadata in a clearly separated, non-secret metadata sheet/section.
 - [ ] Rerun focused tests, then all R4 tests. Manually compare a Ti/O boundary export against the R3 output structure without freezing remote phase names.
-- [ ] Commit: `feat: add immutable R4 calculation snapshots and data export`.
+- [x] Commit: `feat: add immutable R4 calculation snapshots and data export`.
 
 ### Task 6: Render snapshots with all retained R2.8 appearance settings
 
@@ -198,14 +198,14 @@ render_snapshot(snapshot: ResultSnapshot, appearance: AppearanceSettings, region
 export_figure(figure: Figure, path: Path, image_format: Literal["png", "jpeg", "tiff", "svg"], dpi: int, transparent: bool) -> Path
 ```
 
-- [ ] Extend failing plotting tests to assert that pH/potential bounds, labels visibility, label font/size/background/color/alpha, axis/tick font and sizes, axis labels/sizes, spine/solid/stability widths, major/minor tick settings, hydrogen/oxygen water-line colors, and interest-region colors/opacity are applied to a figure.
-- [ ] Add tests for unlimited interest regions: unknown labels are rejected, duplicate selections stay explicit rather than silently rewritten, and each valid selected label is filled from the same clipped snapshot geometry.
-- [ ] Add failing image-export tests for PNG/JPEG/TIFF/SVG, requested DPI for raster output, transparent background, empty output detection, and no recalculation/refetch during export.
-- [ ] Run `pytest -q tests/r4/test_plotting_exporting.py tests/r4/test_r2_compatibility.py` and observe failure.
-- [ ] Implement pure snapshot rendering. Use only `ResultSnapshot.boundaries` for fills and line geometry; `AppearanceSettings` is display-only. Preserve the R2.8 water stability line rendering and non-overlapping label strategy as far as the pinned Matplotlib/pymatgen APIs permit.
-- [ ] Implement image write verification. For SVG, validate a non-empty XML text output; for raster formats, reopen with Pillow only if already present in the resolved environment, otherwise validate file presence/size and document the toolchain limitation.
-- [ ] Rerun focused tests and include a visual smoke image in a temporary test directory; do not commit generated figures.
-- [ ] Commit: `feat: restore R2 plotting controls in R4 renderer`.
+- [x] Extend failing plotting tests to assert that pH/potential bounds, labels visibility, label font/size/background/color/alpha, axis/tick font and sizes, axis labels/sizes, spine/solid/stability widths, major/minor tick settings, hydrogen/oxygen water-line colors, and interest-region colors/opacity are applied to a figure.
+- [x] Add tests for unlimited interest regions: unknown labels are rejected, duplicate selections stay explicit rather than silently rewritten, and each valid selected label is filled from the same clipped snapshot geometry.
+- [x] Add failing image-export tests for PNG/JPEG/TIFF/SVG, requested DPI for raster output, transparent background, empty output detection, and no recalculation/refetch during export.
+- [x] Run `pytest -q tests/r4/test_plotting_exporting.py tests/r4/test_r2_compatibility.py` and observe failure.
+- [x] Implement pure snapshot rendering. Use only `ResultSnapshot.boundaries` for fills and line geometry; `AppearanceSettings` is display-only. Preserve the R2.8 water stability line rendering and non-overlapping label strategy as far as the pinned Matplotlib/pymatgen APIs permit.
+- [x] Implement image write verification. For SVG, validate a non-empty XML text output; for raster formats, reopen with Pillow only if already present in the resolved environment, otherwise validate file presence/size and document the toolchain limitation.
+- [x] Rerun focused tests and include a visual smoke image in a temporary test directory; do not commit generated figures.
+- [x] Commit: `feat: restore R2 plotting controls in R4 renderer`.
 
 ### Task 7: Add runtime bilingual catalog and non-secret UI preferences
 
