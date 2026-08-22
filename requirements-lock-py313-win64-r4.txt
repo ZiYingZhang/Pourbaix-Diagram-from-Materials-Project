@@ -1,3 +1,5 @@
+# Resolved on Windows x64 with CPython 3.13.15.
+# Regenerate from the verified R4 environment with: python -m pip freeze
 altgraph==0.17.5
 annotated-types==0.8.0
 arro3-core==0.8.1

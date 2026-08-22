@@ -70,9 +70,9 @@ docs/r4-release-validation.md
 
 **Files:** modify `requirements.in`, `requirements-dev.in`; create `requirements-lock-py313-win64-r4.txt`, `tests/r4/conftest.py`, `tests/r4/test_release_r4.py`, `pourbaix_studio_R4.py`.
 
-- [ ] Add `PySide6` and `keyring` as explicit runtime requirements, pin the resolved Windows x64 versions, and retain existing R3 dependencies. Create or reuse the Python 3.13 virtual environment only after recording its exact patch version.
-- [ ] Add an R4 headless Qt fixture using `QT_QPA_PLATFORM=offscreen`, `MPLBACKEND=Agg`, and a temporary `LOCALAPPDATA`; its `qapplication` fixture must import `PySide6.QtWidgets.QApplication`, not PyQt5.
-- [ ] Write the failing runtime smoke test:
+- [x] Add `PySide6` and `keyring` as explicit runtime requirements, pin the resolved Windows x64 versions, and retain existing R3 dependencies. Create or reuse the Python 3.13 virtual environment only after recording its exact patch version.
+- [x] Add an R4 headless Qt fixture using `QT_QPA_PLATFORM=offscreen`, `MPLBACKEND=Agg`, and a temporary `LOCALAPPDATA`; its `qapplication` fixture must import `PySide6.QtWidgets.QApplication`, not PyQt5.
+- [x] Write the failing runtime smoke test:
 
   ```python
   def test_r4_self_test_runs_without_constructing_a_window(tmp_path):
@@ -85,10 +85,10 @@ docs/r4-release-validation.md
       assert "R4 self-test: OK" in completed.stdout
   ```
 
-- [ ] Run `pytest -q tests/r4/test_release_r4.py` and confirm it fails because the R4 launcher is absent.
-- [ ] Add a minimal `run_self_test()` and `main(argv)` to `pourbaix_studio_R4.py`; test only imports of the R4 package, PySide6, Matplotlib, Shapely, pandas, keyring, and the existing Materials Project stack. Do not construct `QApplication` for `--self-test`.
-- [ ] Rerun the focused test and then `pytest -q`; record the lockfile command and versions in the lockfile header.
-- [ ] Commit: `chore: establish R4 PySide6 runtime baseline`.
+- [x] Run `pytest -q tests/r4/test_release_r4.py` and confirm it fails because the R4 launcher is absent.
+- [x] Add a minimal `run_self_test()` and `main(argv)` to `pourbaix_studio_R4.py`; test only imports of the R4 package, PySide6, Matplotlib, Shapely, pandas, keyring, and the existing Materials Project stack. Do not construct `QApplication` for `--self-test`.
+- [x] Rerun the focused test and then `pytest -q`; record the lockfile command and versions in the lockfile header.
+- [x] Commit: `chore: establish R4 PySide6 runtime baseline`.
 
 ### Task 2: Define immutable R4 models and the composition/input contract
 
@@ -105,13 +105,13 @@ parse_calculation_input(
 import_legacy_element_ratio_text(elements_text: str, ratios_text: str) -> tuple[tuple[str, ...], dict[str, float]]
 ```
 
-- [ ] Write table-driven failing tests for `Sb2Se3`, `BiVO4`, `FeNi`, `TiO2`, repeated elements, invalid grammar/symbols, duplicate tags, `H/O`-only input, H/O excluded from ratios and `comp_dict`, `2:3` and decimal ratios, ratio count mismatch, non-positive/non-finite values, and unordered/non-finite pH/potential ranges.
-- [ ] Write model tests requiring frozen dataclasses: `CalculationInput`, `InterestRegion`, `AppearanceSettings`, `BoundaryRecord`, and `ResultSnapshot`. `ResultSnapshot` must carry the validated input, stable-domain labels, clipped boundaries, and result metadata, but no live QWidget.
-- [ ] Run `pytest -q tests/r4/test_domain.py tests/r4/test_models_session.py` and confirm import failures.
-- [ ] Implement formula tokenization with `pymatgen.core.Composition` only as a parser/validator, preserving first-occurrence element order. Implement domain validation with no Qt, network, file-dialog, or credential import. A formula's stoichiometry supplies editable initial closed-element ratios; it does not normalize or alter subsequent user ratios.
-- [ ] Implement `import_legacy_element_ratio_text` so prior comma-separated R2.8/R3 input is accepted, including optional H/O. Ensure `CalculationInput.comp_dict` returns non-H/O values only.
-- [ ] Rerun focused tests; add regression assertions that Fe-Ni `1:1` is valid with no O and that changing appearance fields cannot be represented in `CalculationInput`.
-- [ ] Commit: `feat: add R4 composition and input domain contract`.
+- [x] Write table-driven failing tests for `Sb2Se3`, `BiVO4`, `FeNi`, `TiO2`, repeated elements, invalid grammar/symbols, duplicate tags, `H/O`-only input, H/O excluded from ratios and `comp_dict`, `2:3` and decimal ratios, ratio count mismatch, non-positive/non-finite values, and unordered/non-finite pH/potential ranges.
+- [x] Write model tests requiring frozen dataclasses: `CalculationInput`, `InterestRegion`, `AppearanceSettings`, `BoundaryRecord`, and `ResultSnapshot`. `ResultSnapshot` must carry the validated input, stable-domain labels, clipped boundaries, and result metadata, but no live QWidget.
+- [x] Run `pytest -q tests/r4/test_domain.py tests/r4/test_models_session.py` and confirm import failures.
+- [x] Implement formula tokenization with `pymatgen.core.Composition` only as a parser/validator, preserving first-occurrence element order. Implement domain validation with no Qt, network, file-dialog, or credential import. A formula's stoichiometry supplies editable initial closed-element ratios; it does not normalize or alter subsequent user ratios.
+- [x] Implement `import_legacy_element_ratio_text` so prior comma-separated R2.8/R3 input is accepted, including optional H/O. Ensure `CalculationInput.comp_dict` returns non-H/O values only.
+- [x] Rerun focused tests; add regression assertions that Fe-Ni `1:1` is valid with no O and that changing appearance fields cannot be represented in `CalculationInput`.
+- [x] Commit: `feat: add R4 composition and input domain contract`.
 
 ### Task 3: Implement secure, compatible API-key resolution
 
@@ -129,13 +129,13 @@ resolve_api_key(current_value: str | None, legacy_path: Path) -> ResolvedCredent
 detect_legacy_key(legacy_path: Path) -> str | None
 ```
 
-- [ ] Write failing tests using a fake `CredentialStore` for precedence: current UI entry, credential manager, `MP_API_KEY`, `MAPI_KEY`, `PMG_MAPI_KEY`, then `mp_api_key.txt`. Test empty/whitespace values, non-disclosure in `repr`, and source labels without the key.
-- [ ] Add tests that a legacy key is read but never modified; only `migrate_legacy_key(store, legacy_path)` writes to the store and leaves the legacy file present. Add tests for remember/replace/forget and storage-backend failure.
-- [ ] Run `pytest -q tests/r4/test_credentials.py` and observe failure.
-- [ ] Implement a `keyring`-backed `WindowsCredentialStore` with a stable service name and current-user key name. Keep imports and errors testable; use QSettings for no secret. Give callers typed `CredentialError` messages safe for dialogs/logging.
-- [ ] Add `api_key_url()` returning the preserved direct link `https://next-gen.materialsproject.org/api` and `api_docs_url()` for the official documentation fallback. The launcher self-test must verify constants only and never resolve a real key.
-- [ ] Rerun focused and complete tests. Inspect test logs to confirm no fake key appears.
-- [ ] Commit: `feat: add secure R4 API credential handling`.
+- [x] Write failing tests using a fake `CredentialStore` for precedence: current UI entry, credential manager, `MP_API_KEY`, `MAPI_KEY`, `PMG_MAPI_KEY`, then `mp_api_key.txt`. Test empty/whitespace values, non-disclosure in `repr`, and source labels without the key.
+- [x] Add tests that a legacy key is read but never modified; only `migrate_legacy_key(store, legacy_path)` writes to the store and leaves the legacy file present. Add tests for remember/replace/forget and storage-backend failure.
+- [x] Run `pytest -q tests/r4/test_credentials.py` and observe failure.
+- [x] Implement a `keyring`-backed `WindowsCredentialStore` with a stable service name and current-user key name. Keep imports and errors testable; use QSettings for no secret. Give callers typed `CredentialError` messages safe for dialogs/logging.
+- [x] Add `api_key_url()` returning the preserved direct link `https://next-gen.materialsproject.org/api` and `api_docs_url()` for the official documentation fallback. The launcher self-test must verify constants only and never resolve a real key.
+- [x] Rerun focused and complete tests. Inspect test logs to confirm no fake key appears.
+- [x] Commit: `feat: add secure R4 API credential handling`.
 
 ### Task 4: Move cached Materials Project retrieval behind a tested service
 
