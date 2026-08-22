@@ -44,6 +44,7 @@ class BoundaryRecord:
     domain_label: str
     ph: float
     potential_v_she: float
+    vertex_index: int = 0
 
 
 @dataclass(frozen=True)
