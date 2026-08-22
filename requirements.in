@@ -3,10 +3,12 @@ mpcontribs-client
 pymatgen
 pymatgen-core
 PyQt5
+PySide6==6.11.2
 matplotlib
 shapely
 pandas
 openpyxl
 numpy
 certifi
+keyring==25.7.0
 

@@ -2,6 +2,7 @@
 .worktrees/
 __pycache__/
 .pytest_cache/
+.pytest-tmp*/
 *.py[cod]
 *.log
 mp_api_key.txt
