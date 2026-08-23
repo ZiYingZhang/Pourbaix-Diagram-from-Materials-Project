@@ -24,3 +24,14 @@ def test_r4_self_test_runs_without_constructing_a_window(tmp_path):
 
     assert completed.returncode == 0, completed.stderr
     assert "R4 self-test: OK" in completed.stdout
+
+
+def test_r4_gui_smoke_constructs_and_closes_workbench(tmp_path):
+    completed = subprocess.run(
+        [sys.executable, str(SCRIPT), "--gui-smoke"],
+        cwd=REPO_ROOT, text=True, capture_output=True, check=False,
+        env={**os.environ, "LOCALAPPDATA": str(tmp_path / "local-app-data"), "QT_QPA_PLATFORM": "offscreen"},
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    assert "R4 GUI smoke: OK" in completed.stdout
