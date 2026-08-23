@@ -1,5 +1,5 @@
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QDockWidget, QTabWidget
+from PySide6.QtWidgets import QDockWidget, QPushButton, QTabWidget
 
 from pourbaix_core import FetchResult
 from pourbaix_r4.credentials import ResolvedCredential
@@ -64,5 +64,19 @@ def test_generate_uses_injected_runtime_services_and_replaces_snapshot(qapplicat
         assert calls == [(("Fe", "Ni"), "runtime-secret")]
         assert window.session.exportable_snapshot is not None
         assert window.available_regions.count() == 1
+    finally:
+        window.close()
+
+
+def test_interest_region_toolbar_controls_add_and_remove_selected_region(qapplication):
+    window = PourbaixStudioMainWindow()
+    try:
+        window.show_snapshot(_snapshot())
+        window.available_regions.setCurrentRow(0)
+        window.findChild(QPushButton, "addInterestRegionButton").click()
+        assert window.interest_region_count() == 1
+        window.interest_list.setCurrentRow(0)
+        window.findChild(QPushButton, "removeInterestRegionButton").click()
+        assert window.interest_region_count() == 0
     finally:
         window.close()

@@ -8,7 +8,7 @@ from typing import Callable
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QDockWidget, QLabel, QListWidget, QMainWindow, QTableWidget, QTableWidgetItem,
+    QDockWidget, QHBoxLayout, QLabel, QListWidget, QMainWindow, QPushButton, QTableWidget, QTableWidgetItem,
     QTabWidget, QToolBar, QVBoxLayout, QWidget,
 )
 
@@ -58,8 +58,13 @@ class PourbaixStudioMainWindow(QMainWindow):
         self.composition_panel.calculation_requested.connect(self._generate)
         composition_dock = QDockWidget("System and conditions", self); composition_dock.setWidget(self.composition_panel)
         self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, composition_dock)
-        self.interest_list = QListWidget()
-        interest_dock = QDockWidget("Interest regions", self); interest_dock.setWidget(self.interest_list)
+        interest_widget = QWidget(); interest_layout = QVBoxLayout(interest_widget)
+        self.interest_list = QListWidget(); interest_layout.addWidget(self.interest_list)
+        controls = QHBoxLayout()
+        add_region = QPushButton("Add selected"); add_region.setObjectName("addInterestRegionButton"); add_region.clicked.connect(self._add_selected_region); controls.addWidget(add_region)
+        remove_region = QPushButton("Remove"); remove_region.setObjectName("removeInterestRegionButton"); remove_region.clicked.connect(lambda: self.remove_interest_region(self.interest_list.currentRow())); controls.addWidget(remove_region)
+        interest_layout.addLayout(controls)
+        interest_dock = QDockWidget("Interest regions", self); interest_dock.setWidget(interest_widget)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, interest_dock)
 
     def _build_toolbar(self) -> None:
@@ -108,6 +113,11 @@ class PourbaixStudioMainWindow(QMainWindow):
         self.interest_regions.append(InterestRegion(label))
         self.interest_list.addItem(label)
         self._render()
+
+    def _add_selected_region(self) -> None:
+        item = self.available_regions.currentItem()
+        if item is not None:
+            self.add_interest_region(item.text())
 
     def remove_interest_region(self, index: int) -> None:
         if 0 <= index < len(self.interest_regions):
