@@ -80,3 +80,14 @@ def test_interest_region_toolbar_controls_add_and_remove_selected_region(qapplic
         assert window.interest_region_count() == 0
     finally:
         window.close()
+
+
+def test_workbench_exports_current_snapshot_without_refetching(qapplication, tmp_path):
+    window = PourbaixStudioMainWindow()
+    try:
+        window.show_snapshot(_snapshot())
+        output = window.export_current_data(tmp_path / "boundaries.csv", "csv")
+        assert output.is_file()
+        assert "domain_label" in output.read_text(encoding="utf-8")
+    finally:
+        window.close()

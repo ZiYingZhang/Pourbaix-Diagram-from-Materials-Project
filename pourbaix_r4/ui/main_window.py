@@ -8,18 +8,20 @@ from typing import Callable
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QDockWidget, QHBoxLayout, QLabel, QListWidget, QMainWindow, QPushButton, QTableWidget, QTableWidgetItem,
+    QDockWidget, QFileDialog, QHBoxLayout, QLabel, QListWidget, QMainWindow, QPushButton, QTableWidget, QTableWidgetItem,
     QTabWidget, QToolBar, QVBoxLayout, QWidget,
 )
 
 from pourbaix_r4.i18n import Language, PreferenceStore
 from pourbaix_r4.calculation import calculate_snapshot
 from pourbaix_r4.credentials import WindowsCredentialStore, resolve_api_key
+from pourbaix_r4.exporting import ExportError, export_boundaries
 from pourbaix_r4.materials_project import CachedEntryService, MPResterEntryProvider
 from pourbaix_r4.models import AppearanceSettings, InterestRegion, ResultSnapshot
 from pourbaix_r4.plotting import render_snapshot
 from pourbaix_r4.session import CalculationSession
 from pourbaix_r4.ui.composition_panel import CompositionPanel
+from pourbaix_r4.ui.api_dialog import ApiSettingsDialog
 
 
 class PourbaixStudioMainWindow(QMainWindow):
@@ -69,6 +71,8 @@ class PourbaixStudioMainWindow(QMainWindow):
 
     def _build_toolbar(self) -> None:
         toolbar = QToolBar("Tools", self); self.addToolBar(toolbar)
+        toolbar.addAction("API settings", self.show_api_settings)
+        toolbar.addAction("Export data", self._choose_data_export)
         toolbar.addAction("English", lambda: self.set_language("en"))
         toolbar.addAction("中文", lambda: self.set_language("zh_CN"))
 
@@ -95,6 +99,25 @@ class PourbaixStudioMainWindow(QMainWindow):
         except Exception as error:
             self.session.replace_failure(error)
             self.statusBar().showMessage("Calculation failed. See diagnostics for details.")
+
+    def show_api_settings(self) -> None:
+        ApiSettingsDialog(store=WindowsCredentialStore(), parent=self).exec()
+
+    def export_current_data(self, path: Path, file_format: str) -> Path:
+        snapshot = self.session.exportable_snapshot
+        if snapshot is None:
+            raise ExportError("Generate a current diagram before exporting data")
+        return export_boundaries(snapshot, Path(path), file_format)
+
+    def _choose_data_export(self) -> None:
+        path, selected = QFileDialog.getSaveFileName(self, "Export data", "", "CSV (*.csv);;Excel (*.xlsx);;Text (*.txt)")
+        if not path: return
+        file_format = "xlsx" if "xlsx" in selected else "txt" if "txt" in selected else "csv"
+        try:
+            self.export_current_data(Path(path), file_format)
+            self.statusBar().showMessage(f"Export completed: {path}")
+        except ExportError as error:
+            self.statusBar().showMessage(str(error))
 
     def _render(self) -> None:
         snapshot = self.session.snapshot
