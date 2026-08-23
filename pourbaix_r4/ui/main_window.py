@@ -15,7 +15,7 @@ from PySide6.QtWidgets import (
 from pourbaix_r4.i18n import Language, PreferenceStore
 from pourbaix_r4.calculation import calculate_snapshot
 from pourbaix_r4.credentials import WindowsCredentialStore, resolve_api_key
-from pourbaix_r4.exporting import ExportError, export_boundaries
+from pourbaix_r4.exporting import ExportError, export_boundaries, export_figure
 from pourbaix_r4.materials_project import CachedEntryService, MPResterEntryProvider
 from pourbaix_r4.models import AppearanceSettings, InterestRegion, ResultSnapshot
 from pourbaix_r4.plotting import render_snapshot
@@ -108,6 +108,13 @@ class PourbaixStudioMainWindow(QMainWindow):
         if snapshot is None:
             raise ExportError("Generate a current diagram before exporting data")
         return export_boundaries(snapshot, Path(path), file_format)
+
+    def export_current_figure(self, path: Path, image_format: str, *, dpi: int = 300, transparent: bool = False) -> Path:
+        snapshot = self.session.exportable_snapshot
+        if snapshot is None:
+            raise ExportError("Generate a current diagram before exporting an image")
+        figure = render_snapshot(snapshot, self.appearance, self.interest_regions)
+        return export_figure(figure, Path(path), image_format, dpi=dpi, transparent=transparent)
 
     def _choose_data_export(self) -> None:
         path, selected = QFileDialog.getSaveFileName(self, "Export data", "", "CSV (*.csv);;Excel (*.xlsx);;Text (*.txt)")

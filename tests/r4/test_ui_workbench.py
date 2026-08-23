@@ -91,3 +91,14 @@ def test_workbench_exports_current_snapshot_without_refetching(qapplication, tmp
         assert "domain_label" in output.read_text(encoding="utf-8")
     finally:
         window.close()
+
+
+def test_workbench_exports_rendered_snapshot_image_without_refetching(qapplication, tmp_path):
+    window = PourbaixStudioMainWindow()
+    try:
+        window.show_snapshot(_snapshot())
+        output = window.export_current_figure(tmp_path / "diagram.png", "png", dpi=144, transparent=True)
+        assert output.is_file()
+        assert output.stat().st_size > 0
+    finally:
+        window.close()
