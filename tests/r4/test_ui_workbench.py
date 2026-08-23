@@ -1,6 +1,8 @@
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QDockWidget, QTabWidget
 
+from pourbaix_core import FetchResult
+from pourbaix_r4.credentials import ResolvedCredential
 from pourbaix_r4.models import BoundaryRecord, CalculationInput, ResultSnapshot
 from pourbaix_r4.ui.main_window import PourbaixStudioMainWindow
 
@@ -41,5 +43,26 @@ def test_language_switch_and_input_change_preserve_or_invalidate_correct_state(q
         assert window.session.exportable_snapshot is snapshot
         window.composition_panel.input_changed.emit()
         assert window.session.exportable_snapshot is None
+    finally:
+        window.close()
+
+
+def test_generate_uses_injected_runtime_services_and_replaces_snapshot(qapplication):
+    calls = []
+    class Entries:
+        def fetch(self, elements, api_key):
+            calls.append((tuple(elements), api_key)); return FetchResult(["entry"], False)
+    def resolve(): return ResolvedCredential("current_ui", "runtime-secret")
+    def calculate(inputs, entries):
+        assert entries == ["entry"]
+        return _snapshot()
+
+    window = PourbaixStudioMainWindow(entry_service=Entries(), credential_resolver=resolve, calculate=calculate)
+    try:
+        window.composition_panel.set_selected_elements(("Fe", "Ni"))
+        window.composition_panel.request_calculation()
+        assert calls == [(("Fe", "Ni"), "runtime-secret")]
+        assert window.session.exportable_snapshot is not None
+        assert window.available_regions.count() == 1
     finally:
         window.close()

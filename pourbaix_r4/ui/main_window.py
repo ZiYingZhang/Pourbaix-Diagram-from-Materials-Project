@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+from typing import Callable
+
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
@@ -10,6 +13,9 @@ from PySide6.QtWidgets import (
 )
 
 from pourbaix_r4.i18n import Language, PreferenceStore
+from pourbaix_r4.calculation import calculate_snapshot
+from pourbaix_r4.credentials import WindowsCredentialStore, resolve_api_key
+from pourbaix_r4.materials_project import CachedEntryService, MPResterEntryProvider
 from pourbaix_r4.models import AppearanceSettings, InterestRegion, ResultSnapshot
 from pourbaix_r4.plotting import render_snapshot
 from pourbaix_r4.session import CalculationSession
@@ -17,13 +23,18 @@ from pourbaix_r4.ui.composition_panel import CompositionPanel
 
 
 class PourbaixStudioMainWindow(QMainWindow):
-    def __init__(self, parent=None):
+    def __init__(self, *, entry_service=None, credential_resolver: Callable[[], object] | None = None, calculate=calculate_snapshot, parent=None):
         super().__init__(parent)
         self.session = CalculationSession()
         self.preferences = PreferenceStore()
         self.appearance = AppearanceSettings()
         self.interest_regions: list[InterestRegion] = []
         self._language: Language = self.preferences.language()
+        self._entry_service = entry_service or CachedEntryService(MPResterEntryProvider())
+        self._credential_resolver = credential_resolver or (
+            lambda: resolve_api_key(None, WindowsCredentialStore(), Path.cwd() / "mp_api_key.txt")
+        )
+        self._calculate = calculate
         self.setWindowTitle("Pourbaix Studio R4")
         self.resize(1280, 800)
         self._build_workspace()
@@ -44,6 +55,7 @@ class PourbaixStudioMainWindow(QMainWindow):
     def _build_docks(self) -> None:
         self.composition_panel = CompositionPanel()
         self.composition_panel.input_changed.connect(self.session.invalidate_for_input_change)
+        self.composition_panel.calculation_requested.connect(self._generate)
         composition_dock = QDockWidget("System and conditions", self); composition_dock.setWidget(self.composition_panel)
         self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, composition_dock)
         self.interest_list = QListWidget()
@@ -68,6 +80,16 @@ class PourbaixStudioMainWindow(QMainWindow):
             for column, value in enumerate((boundary.domain_label, boundary.vertex_index, boundary.ph, boundary.potential_v_she)):
                 self.boundary_table.setItem(row, column, QTableWidgetItem(str(value)))
         self._render()
+
+    def _generate(self, calculation_input) -> None:
+        try:
+            credential = self._credential_resolver()
+            result = self._entry_service.fetch(calculation_input.elements, credential.value)
+            self.show_snapshot(self._calculate(calculation_input, result.entries))
+            self.statusBar().showMessage("Diagram generated.")
+        except Exception as error:
+            self.session.replace_failure(error)
+            self.statusBar().showMessage("Calculation failed. See diagnostics for details.")
 
     def _render(self) -> None:
         snapshot = self.session.snapshot
