@@ -14,10 +14,16 @@ class CalculationInput:
     closed_element_ratios: tuple[tuple[str, float], ...]
     ph_range: tuple[float, float]
     potential_range: tuple[float, float]
+    ion_concentrations: tuple[tuple[str, float], ...] = ()
+    filter_solids: bool = True
 
     @property
     def comp_dict(self) -> dict[str, float]:
         return dict(self.closed_element_ratios)
+
+    @property
+    def conc_dict(self) -> dict[str, float]:
+        return dict(self.ion_concentrations)
 
 
 @dataclass(frozen=True)
@@ -77,4 +83,5 @@ class ResultSnapshot:
     stable_domain_labels: tuple[str, ...]
     boundaries: tuple[BoundaryRecord, ...]
     entries_count: int
+    plotter_payload: object | None = field(default=None, repr=False, compare=False)
     generated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))

@@ -54,6 +54,26 @@ def test_parse_calculation_input_accepts_aqueous_alloys_without_selected_oxygen(
     )
 
     assert parsed.comp_dict == {"Fe": 1.0, "Ni": 1.0}
+    assert parsed.conc_dict == {"Fe": 1e-6, "Ni": 1e-6}
+    assert parsed.filter_solids is True
+
+
+def test_parse_calculation_input_accepts_element_concentrations_and_filter_switch():
+    parsed = parse_calculation_input(
+        ("Sb", "Se", "O"), {"Sb": 2, "Se": 3}, (0, 14), (-2, 4),
+        ion_concentrations={"Sb": "0.000001", "Se": "0.01"}, filter_solids=False,
+    )
+    assert parsed.conc_dict == {"Sb": 1e-6, "Se": 0.01}
+    assert parsed.filter_solids is False
+
+
+@pytest.mark.parametrize("concentrations", [
+    {"Sb": "0"}, {"Sb": "1e-7"}, {"Sb": "5.1"}, {"Sb": "nan"},
+    {}, {"Sb": "1e-6", "O": "1e-6"},
+])
+def test_parse_calculation_input_rejects_invalid_ion_concentrations(concentrations):
+    with pytest.raises(InputValidationError, match="concentration"):
+        parse_calculation_input(("Sb", "O"), {"Sb": 1}, (0, 14), (-2, 4), ion_concentrations=concentrations)
 
 
 @pytest.mark.parametrize(

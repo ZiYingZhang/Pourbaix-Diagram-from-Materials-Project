@@ -52,6 +52,16 @@ def _parse_positive_ratio(value: object) -> float:
     return parsed
 
 
+def _parse_concentration(element: str, value: object) -> float:
+    try:
+        parsed = float(str(value).strip())
+    except (TypeError, ValueError) as error:
+        raise InputValidationError(f"Ion concentration for {element} must be a number in M") from error
+    if not math.isfinite(parsed) or not 1e-6 <= parsed <= 5.0:
+        raise InputValidationError(f"Ion concentration for {element} must be between 1e-6 and 5 M")
+    return parsed
+
+
 def _parse_range(raw_range: Sequence[object], field: str) -> tuple[float, float]:
     if isinstance(raw_range, str) or len(raw_range) != 2:
         raise InputValidationError(f"{field} must contain a lower and upper value")
@@ -97,6 +107,8 @@ def parse_calculation_input(
     ratios: Mapping[str, str | float],
     ph_range: tuple[str | float, str | float],
     potential_range: tuple[str | float, str | float],
+    ion_concentrations: Mapping[str, str | float] | None = None,
+    filter_solids: bool = True,
 ) -> CalculationInput:
     """Validate UI state before credential resolution or a network request."""
     elements = _validate_elements(selected_elements)
@@ -113,11 +125,23 @@ def parse_calculation_input(
         raise InputValidationError("Ratios must provide one value for each non-H/O element")
 
     parsed_ratios = tuple((element, _parse_positive_ratio(canonical_ratios[element])) for element in closed_elements)
+    raw_concentrations = ({element: 1e-6 for element in closed_elements} if ion_concentrations is None else ion_concentrations)
+    canonical_concentrations: dict[str, object] = {}
+    for raw_symbol, value in raw_concentrations.items():
+        symbol = _canonical_symbol(raw_symbol, "Ion concentration")
+        canonical_concentrations[symbol] = value
+    if set(canonical_concentrations) != set(closed_elements):
+        raise InputValidationError("Ion concentration must provide one value for each non-H/O element")
+    parsed_concentrations = tuple(
+        (element, _parse_concentration(element, canonical_concentrations[element])) for element in closed_elements
+    )
     return CalculationInput(
         elements=elements,
         closed_element_ratios=parsed_ratios,
         ph_range=_parse_range(ph_range, "pH range"),
         potential_range=_parse_range(potential_range, "Potential range"),
+        ion_concentrations=parsed_concentrations,
+        filter_solids=bool(filter_solids),
     )
 
 
