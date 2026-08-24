@@ -1,5 +1,6 @@
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QCheckBox, QComboBox, QDockWidget, QDoubleSpinBox, QPushButton, QTabWidget, QToolBar
+from PySide6.QtGui import QPalette
+from PySide6.QtWidgets import QCheckBox, QComboBox, QDockWidget, QDoubleSpinBox, QGroupBox, QPushButton, QScrollArea, QSlider, QTabWidget, QToolBar
 
 from pourbaix_core import FetchResult
 from pourbaix_r4.credentials import ResolvedCredential
@@ -20,7 +21,7 @@ def test_workbench_exposes_required_docks_tabs_and_dynamic_interest_regions(qapp
     window = PourbaixStudioMainWindow()
     try:
         docks = {dock.windowTitle() for dock in window.findChildren(QDockWidget)}
-        assert {"System and conditions", "Interest regions"}.issubset(docks)
+        assert {"System and conditions", "Post-processing"}.issubset(docks)
         tabs = window.findChild(QTabWidget, "workspaceTabs")
         assert [tabs.tabText(index) for index in range(tabs.count())] == ["Diagram", "Available regions", "Boundary data"]
 
@@ -196,6 +197,50 @@ def test_right_panel_exposes_region_selector_and_interactive_navigation(qapplica
         selector = window.findChild(QComboBox, "regionSelectorControl")
         assert selector.itemText(0) == "Fe(s)"
         assert window.findChild(QToolBar, "plotNavigationToolbar") is not None
+    finally:
+        window.close()
+
+
+def test_sidebars_scroll_and_region_color_controls_share_one_section(qapplication):
+    window = PourbaixStudioMainWindow()
+    try:
+        query_scroll = window.findChild(QScrollArea, "queryScrollArea")
+        post_scroll = window.findChild(QScrollArea, "postProcessingScrollArea")
+        regions_group = window.findChild(QGroupBox, "regionsAndFillsGroup")
+        color_button = window.findChild(QPushButton, "regionColorButton")
+        opacity_slider = window.findChild(QSlider, "regionOpacitySlider")
+
+        assert query_scroll.widgetResizable() is True
+        assert post_scroll.widgetResizable() is True
+        assert regions_group.isAncestorOf(color_button)
+        assert regions_group.isAncestorOf(opacity_slider)
+        assert window.palette().color(QPalette.ColorRole.Window).lightness() > 128
+    finally:
+        window.close()
+
+
+def test_selected_region_color_and_opacity_are_applied_together(qapplication):
+    window = PourbaixStudioMainWindow()
+    try:
+        snapshot = _snapshot()
+        window.show_snapshot(snapshot)
+        window.interest_list.setCurrentRow(0)
+        window.set_selected_region_color("#123456")
+        window.findChild(QSlider, "regionOpacitySlider").setValue(55)
+        window.apply_selected_region_style()
+
+        assert window.interest_regions[0].color == "#123456"
+        assert window.interest_regions[0].opacity == 0.55
+        assert window.session.exportable_snapshot is snapshot
+    finally:
+        window.close()
+
+
+def test_composition_validation_is_visible_in_workbench_status(qapplication):
+    window = PourbaixStudioMainWindow()
+    try:
+        window.composition_panel.validation_failed.emit("Up to 4 elements are supported")
+        assert window.statusBar().currentMessage() == "Up to 4 elements are supported"
     finally:
         window.close()
 

@@ -92,6 +92,31 @@ def test_searchable_periodic_table_selection_rebuilds_editor(qapplication):
         panel.close()
 
 
+def test_element_picker_rejects_fifth_closed_element_without_losing_last_valid_state(qapplication):
+    panel = CompositionPanel()
+    errors = []
+    panel.validation_failed.connect(errors.append)
+    try:
+        panel.set_selected_elements(("Fe", "Ni", "Co", "Cr", "O"))
+        assert panel.ratio_values() == {"Fe": "1.0", "Ni": "1.0", "Co": "1.0", "Cr": "1.0"}
+
+        panel.set_selected_elements(("Fe", "Ni", "Co", "Cr", "Mn", "O"))
+        assert panel.selected_elements() == ("Fe", "Ni", "Co", "Cr", "O")
+        assert errors and "at most 4" in errors[-1]
+    finally:
+        panel.close()
+
+
+def test_periodic_table_prevents_clicking_a_fifth_closed_element(qapplication):
+    dialog = PeriodicTableDialog(("Fe", "Ni", "Co", "Cr", "O"))
+    try:
+        dialog.element_buttons["Mn"].click()
+        assert dialog.selected_symbols() == ("Fe", "Ni", "Co", "Cr", "O")
+        assert "Up to 4" in dialog.selection_limit_notice.text()
+    finally:
+        dialog.close()
+
+
 @dataclass
 class FakeStore:
     value: str | None = None

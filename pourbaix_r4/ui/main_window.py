@@ -8,10 +8,12 @@ from dataclasses import replace
 
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg, NavigationToolbar2QT
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QColor, QPalette
 from PySide6.QtWidgets import (
-    QCheckBox, QComboBox, QDockWidget, QDoubleSpinBox, QFileDialog, QFormLayout, QHBoxLayout,
-    QLabel, QLineEdit, QListWidget, QListWidgetItem, QMainWindow, QPushButton, QTableWidget, QTableWidgetItem,
-    QTabWidget, QToolBar, QVBoxLayout, QWidget,
+    QCheckBox, QColorDialog, QComboBox, QDockWidget, QDoubleSpinBox, QFileDialog, QFormLayout,
+    QFrame, QGroupBox, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem, QMainWindow,
+    QPushButton, QScrollArea, QSlider, QTableWidget, QTableWidgetItem, QTabWidget, QToolBar,
+    QToolBox, QVBoxLayout, QWidget,
 )
 
 from pourbaix_r4.i18n import Language, PreferenceStore
@@ -42,6 +44,7 @@ class PourbaixStudioMainWindow(QMainWindow):
         self._calculate = calculate
         self.setWindowTitle("Pourbaix Studio R4")
         self.resize(1280, 800)
+        self._apply_light_palette()
         self._build_workspace()
         self._build_docks()
         self._build_toolbar()
@@ -61,47 +64,144 @@ class PourbaixStudioMainWindow(QMainWindow):
         self.composition_panel = CompositionPanel()
         self.composition_panel.input_changed.connect(self.session.invalidate_for_input_change)
         self.composition_panel.calculation_requested.connect(self._generate)
-        composition_dock = QDockWidget("System and conditions", self); composition_dock.setWidget(self.composition_panel)
+        self.composition_panel.validation_failed.connect(self.statusBar().showMessage)
+        query_scroll = self._scroll_area("queryScrollArea", self.composition_panel)
+        composition_dock = QDockWidget("System and conditions", self)
+        composition_dock.setMinimumWidth(255)
+        composition_dock.setWidget(query_scroll)
         self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, composition_dock)
-        interest_widget = QWidget(); interest_layout = QVBoxLayout(interest_widget)
-        self.region_selector = QComboBox(); self.region_selector.setObjectName("regionSelectorControl"); interest_layout.addWidget(self.region_selector)
-        self.interest_list = QListWidget(); self.interest_list.itemChanged.connect(self._interest_visibility_changed); self.interest_list.currentRowChanged.connect(self._load_interest_style); interest_layout.addWidget(self.interest_list)
-        controls = QHBoxLayout()
-        add_region = QPushButton("Add selected"); add_region.setObjectName("addInterestRegionButton"); add_region.clicked.connect(self._add_selected_region); controls.addWidget(add_region)
-        remove_region = QPushButton("Remove"); remove_region.setObjectName("removeInterestRegionButton"); remove_region.clicked.connect(lambda: self.remove_interest_region(self.interest_list.currentRow())); controls.addWidget(remove_region)
-        interest_layout.addLayout(controls)
-        interest_dock = QDockWidget("Interest regions", self); interest_dock.setWidget(interest_widget)
-        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, interest_dock)
-        appearance_widget = QWidget(); appearance_layout = QVBoxLayout(appearance_widget)
-        labels = QCheckBox("Show ion labels"); labels.setObjectName("showIonLabelsControl"); labels.setChecked(self.appearance.show_ion_labels); labels.toggled.connect(self.set_show_ion_labels); appearance_layout.addWidget(labels)
-        form = QFormLayout()
+
+        post_outer = QWidget()
+        post_outer_layout = QVBoxLayout(post_outer)
+        post_outer_layout.setContentsMargins(0, 0, 0, 0)
+        post_content = QWidget()
+        post_layout = QVBoxLayout(post_content)
+        post_layout.setContentsMargins(10, 10, 10, 10)
+        post_layout.addWidget(self._build_regions_group())
+        post_layout.addWidget(self._build_appearance_toolbox())
+        post_layout.addStretch(1)
+        post_scroll = self._scroll_area("postProcessingScrollArea", post_content)
+        post_outer_layout.addWidget(post_scroll, 1)
+        self.replot_button = QPushButton("Re-plot current result")
+        self.replot_button.setObjectName("replotButton")
+        self.replot_button.clicked.connect(self.replot_current_result)
+        post_outer_layout.addWidget(self.replot_button)
+        post_dock = QDockWidget("Post-processing", self)
+        post_dock.setMinimumWidth(310)
+        post_dock.setWidget(post_outer)
+        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, post_dock)
+
+    def _scroll_area(self, name: str, widget: QWidget) -> QScrollArea:
+        scroll = QScrollArea()
+        scroll.setObjectName(name)
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll.setWidget(widget)
+        return scroll
+
+    def _build_regions_group(self) -> QGroupBox:
+        group = QGroupBox("Regions & fills")
+        group.setObjectName("regionsAndFillsGroup")
+        layout = QVBoxLayout(group)
+        add_row = QHBoxLayout()
+        self.region_selector = QComboBox()
+        self.region_selector.setObjectName("regionSelectorControl")
+        add_row.addWidget(self.region_selector, 1)
+        add_region = QPushButton("Add")
+        add_region.setObjectName("addInterestRegionButton")
+        add_region.clicked.connect(self._add_selected_region)
+        add_row.addWidget(add_region)
+        layout.addLayout(add_row)
+        self.interest_list = QListWidget()
+        self.interest_list.setMinimumHeight(135)
+        self.interest_list.itemChanged.connect(self._interest_visibility_changed)
+        self.interest_list.currentRowChanged.connect(self._load_interest_style)
+        layout.addWidget(self.interest_list)
+        remove_region = QPushButton("Remove selected region")
+        remove_region.setObjectName("removeInterestRegionButton")
+        remove_region.clicked.connect(lambda: self.remove_interest_region(self.interest_list.currentRow()))
+        layout.addWidget(remove_region)
+        color_row = QHBoxLayout()
+        color_row.addWidget(QLabel("Selected fill"))
+        self.region_color_button = QPushButton("#B0C4DE")
+        self.region_color_button.setObjectName("regionColorButton")
+        self.region_color_button.clicked.connect(self.choose_selected_region_color)
+        color_row.addWidget(self.region_color_button, 1)
+        layout.addLayout(color_row)
+        opacity_row = QHBoxLayout()
+        opacity_row.addWidget(QLabel("Opacity"))
+        self.region_opacity = QSlider(Qt.Orientation.Horizontal)
+        self.region_opacity.setObjectName("regionOpacitySlider")
+        self.region_opacity.setRange(0, 100)
+        self.region_opacity.setValue(40)
+        self.region_opacity.valueChanged.connect(self._update_region_opacity_label)
+        opacity_row.addWidget(self.region_opacity, 1)
+        self.region_opacity_label = QLabel("40%")
+        opacity_row.addWidget(self.region_opacity_label)
+        layout.addLayout(opacity_row)
+        apply_fill = QPushButton("Apply to selected region")
+        apply_fill.clicked.connect(self.apply_selected_region_style)
+        layout.addWidget(apply_fill)
+        self._selected_region_color = "#B0C4DE"
+        self._refresh_region_color_button()
+        return group
+
+    def _build_appearance_toolbox(self) -> QToolBox:
+        toolbox = QToolBox()
+        toolbox.setObjectName("postProcessingSections")
+        toolbox.addItem(self._build_labels_page(), "Labels & fonts")
+        toolbox.addItem(self._build_lines_page(), "Lines & axes")
+        toolbox.addItem(self._build_view_page(), "View range")
+        toolbox.addItem(self._build_export_page(), "Image export")
+        return toolbox
+
+    def _build_labels_page(self) -> QWidget:
+        page = QWidget(); form = QFormLayout(page)
+        labels = QCheckBox("Show ion labels"); labels.setObjectName("showIonLabelsControl"); labels.setChecked(self.appearance.show_ion_labels); labels.toggled.connect(self.set_show_ion_labels); form.addRow(labels)
         self.ion_label_font = QComboBox(); self.ion_label_font.setObjectName("ionLabelFontControl"); self.ion_label_font.addItems(["Arial", "DejaVu Sans", "Times New Roman"]); self.ion_label_font.setCurrentText(self.appearance.ion_label_font); self.ion_label_font.currentTextChanged.connect(lambda value: self.apply_appearance(ion_label_font=value)); form.addRow("Ion label font", self.ion_label_font)
         self.axis_tick_font = QComboBox(); self.axis_tick_font.setObjectName("axisTickFontControl"); self.axis_tick_font.addItems(["Arial", "DejaVu Sans", "Times New Roman"]); self.axis_tick_font.setCurrentText(self.appearance.axis_tick_font); self.axis_tick_font.currentTextChanged.connect(lambda value: self.apply_appearance(axis_tick_font=value)); form.addRow("Axis/tick font", self.axis_tick_font)
         self.ion_label_size = self._appearance_spin("ionLabelSizeControl", self.appearance.ion_label_font_size, lambda value: self.apply_appearance(ion_label_font_size=value)); form.addRow("Ion label size", self.ion_label_size)
         self.axis_tick_size = self._appearance_spin("axisTickSizeControl", self.appearance.axis_tick_font_size, lambda value: self.apply_appearance(axis_tick_font_size=value)); form.addRow("Axis/tick size", self.axis_tick_size)
+        return page
+
+    def _build_lines_page(self) -> QWidget:
+        page = QWidget(); form = QFormLayout(page)
         spine = self._appearance_spin("spineWidthControl", self.appearance.spine_width, lambda value: self.set_line_style(spine_width=value)); form.addRow("Spine width", spine)
         solid = self._appearance_spin("solidLineWidthControl", self.appearance.solid_line_width, lambda value: self.set_line_style(solid_line_width=value)); form.addRow("Solid line width", solid)
         stability = self._appearance_spin("stabilityLineWidthControl", self.appearance.stability_line_width, lambda value: self.set_line_style(stability_line_width=value)); form.addRow("Stability line width", stability)
-        self.dpi_control = self._appearance_spin("exportDpiControl", 300, lambda value: None, maximum=2400); form.addRow("Export DPI", self.dpi_control)
-        self.transparent_control = QCheckBox("Transparent background"); self.transparent_control.setObjectName("transparentBackgroundControl"); form.addRow(self.transparent_control)
         self.minor_ticks = QCheckBox("Show minor ticks"); self.minor_ticks.setChecked(self.appearance.show_minor_ticks); self.minor_ticks.toggled.connect(lambda value: self.apply_appearance(show_minor_ticks=value)); form.addRow(self.minor_ticks)
         self.hydrogen_color = QLineEdit(self.appearance.hydrogen_line_color); self.hydrogen_color.setObjectName("hydrogenLineColorControl"); self.hydrogen_color.editingFinished.connect(lambda: self.set_line_style(hydrogen_line_color=self.hydrogen_color.text())); form.addRow("Hydrogen line", self.hydrogen_color)
         self.oxygen_color = QLineEdit(self.appearance.oxygen_line_color); self.oxygen_color.setObjectName("oxygenLineColorControl"); self.oxygen_color.editingFinished.connect(lambda: self.set_line_style(oxygen_line_color=self.oxygen_color.text())); form.addRow("Oxygen line", self.oxygen_color)
-        appearance_layout.addLayout(form)
-        fill_form = QFormLayout()
-        self.region_color = QLineEdit("#B0C4DE"); self.region_color.setObjectName("regionFillColorControl"); fill_form.addRow("Selected fill color", self.region_color)
-        self.region_opacity = self._appearance_spin("regionFillOpacityControl", 0.4, lambda value: None, maximum=1.0, step=0.05); fill_form.addRow("Selected fill alpha", self.region_opacity)
-        apply_fill = QPushButton("Apply selected region style"); apply_fill.clicked.connect(self.apply_selected_region_style); fill_form.addRow(apply_fill)
-        appearance_layout.addLayout(fill_form)
-        view_form = QFormLayout()
-        self.view_ph_min = self._range_spin("viewPhMinControl", 0.0); view_form.addRow("View pH min", self.view_ph_min)
-        self.view_ph_max = self._range_spin("viewPhMaxControl", 14.0); view_form.addRow("View pH max", self.view_ph_max)
-        self.view_potential_min = self._range_spin("viewPotentialMinControl", -2.0); view_form.addRow("View potential min", self.view_potential_min)
-        self.view_potential_max = self._range_spin("viewPotentialMaxControl", 4.0); view_form.addRow("View potential max", self.view_potential_max)
-        self.replot_button = QPushButton("Re-plot from current result"); self.replot_button.setObjectName("replotButton"); self.replot_button.clicked.connect(self.replot_current_result); view_form.addRow(self.replot_button)
-        appearance_layout.addLayout(view_form)
-        appearance_dock = QDockWidget("Appearance", self); appearance_dock.setWidget(appearance_widget)
-        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, appearance_dock)
+        return page
+
+    def _build_view_page(self) -> QWidget:
+        page = QWidget(); form = QFormLayout(page)
+        self.view_ph_min = self._range_spin("viewPhMinControl", 0.0); form.addRow("pH min", self.view_ph_min)
+        self.view_ph_max = self._range_spin("viewPhMaxControl", 14.0); form.addRow("pH max", self.view_ph_max)
+        self.view_potential_min = self._range_spin("viewPotentialMinControl", -2.0); form.addRow("Potential min", self.view_potential_min)
+        self.view_potential_max = self._range_spin("viewPotentialMaxControl", 4.0); form.addRow("Potential max", self.view_potential_max)
+        return page
+
+    def _build_export_page(self) -> QWidget:
+        page = QWidget(); form = QFormLayout(page)
+        self.dpi_control = self._appearance_spin("exportDpiControl", 300, lambda value: None, maximum=2400); form.addRow("DPI", self.dpi_control)
+        self.transparent_control = QCheckBox("Transparent background"); self.transparent_control.setObjectName("transparentBackgroundControl"); form.addRow(self.transparent_control)
+        return page
+
+    def _apply_light_palette(self) -> None:
+        palette = QPalette()
+        palette.setColor(QPalette.ColorRole.Window, QColor("#F4F7FB"))
+        palette.setColor(QPalette.ColorRole.WindowText, QColor("#1F2937"))
+        palette.setColor(QPalette.ColorRole.Base, QColor("#FFFFFF"))
+        palette.setColor(QPalette.ColorRole.AlternateBase, QColor("#EDF2F7"))
+        palette.setColor(QPalette.ColorRole.Text, QColor("#1F2937"))
+        palette.setColor(QPalette.ColorRole.Button, QColor("#F9FBFD"))
+        palette.setColor(QPalette.ColorRole.ButtonText, QColor("#1F2937"))
+        palette.setColor(QPalette.ColorRole.Highlight, QColor("#2D83A7"))
+        palette.setColor(QPalette.ColorRole.HighlightedText, QColor("#FFFFFF"))
+        self.setPalette(palette)
 
     def _build_toolbar(self) -> None:
         toolbar = QToolBar("Tools", self); self.addToolBar(toolbar)
@@ -223,9 +323,35 @@ class PourbaixStudioMainWindow(QMainWindow):
         index = self.interest_list.currentRow()
         if not (0 <= index < len(self.interest_regions)):
             return
-        self.interest_regions[index] = replace(self.interest_regions[index], color=self.region_color.text(), opacity=self.region_opacity.value())
+        self.interest_regions[index] = replace(
+            self.interest_regions[index],
+            color=self._selected_region_color,
+            opacity=self.region_opacity.value() / 100.0,
+        )
         self._populate_interest_list(current_row=index)
         self._render()
+
+    def choose_selected_region_color(self) -> None:
+        color = QColorDialog.getColor(QColor(self._selected_region_color), self, "Selected region fill")
+        if color.isValid():
+            self.set_selected_region_color(color.name())
+
+    def set_selected_region_color(self, color: str) -> None:
+        selected = QColor(color)
+        if not selected.isValid():
+            self.statusBar().showMessage("Choose a valid fill color.")
+            return
+        self._selected_region_color = selected.name()
+        self._refresh_region_color_button()
+
+    def _refresh_region_color_button(self) -> None:
+        self.region_color_button.setText(self._selected_region_color.upper())
+        self.region_color_button.setStyleSheet(
+            f"QPushButton {{ background-color: {self._selected_region_color}; color: #172033; }}"
+        )
+
+    def _update_region_opacity_label(self, value: int) -> None:
+        self.region_opacity_label.setText(f"{value}%")
 
     def _populate_interest_list(self, current_row=0) -> None:
         self.interest_list.blockSignals(True)
@@ -242,8 +368,8 @@ class PourbaixStudioMainWindow(QMainWindow):
     def _load_interest_style(self, index: int) -> None:
         if 0 <= index < len(self.interest_regions):
             region = self.interest_regions[index]
-            self.region_color.setText(region.color)
-            self.region_opacity.setValue(region.opacity)
+            self.set_selected_region_color(region.color)
+            self.region_opacity.setValue(round(region.opacity * 100))
 
     def _interest_visibility_changed(self, item) -> None:
         index = self.interest_list.row(item)

@@ -32,6 +32,23 @@ def test_parse_formula_rejects_empty_invalid_or_open_only_formulas(formula):
         parse_formula(formula)
 
 
+def test_materials_project_limit_allows_four_closed_elements_and_rejects_five():
+    elements, ratios = parse_formula("FeNiCoCrO2H2")
+    assert elements == ("Fe", "Ni", "Co", "Cr", "O", "H")
+    assert ratios == {"Fe": 1.0, "Ni": 1.0, "Co": 1.0, "Cr": 1.0}
+
+    with pytest.raises(InputValidationError, match="at most 4"):
+        parse_formula("FeNiCoCrMnO2")
+
+    with pytest.raises(InputValidationError, match="at most 4"):
+        parse_calculation_input(
+            ("Fe", "Ni", "Co", "Cr", "Mn", "O"),
+            {"Fe": 1, "Ni": 1, "Co": 1, "Cr": 1, "Mn": 1},
+            (0, 14),
+            (-2, 4),
+        )
+
+
 def test_parse_calculation_input_keeps_hydrogen_and_oxygen_open():
     parsed = parse_calculation_input(
         selected_elements=("Sb", "Se", "O", "H"),

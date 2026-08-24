@@ -12,6 +12,7 @@ from pourbaix_r4.models import CalculationInput
 
 
 _OPEN_SPECIES = frozenset({"H", "O"})
+MAX_CLOSED_ELEMENTS = 4
 _FORMULA_PATTERN = re.compile(r"(?:[A-Z][a-z]?(?:\d+(?:\.\d+)?)?)+")
 
 
@@ -29,7 +30,7 @@ def _canonical_symbol(raw_symbol: object, field: str) -> str:
         raise InputValidationError(f"{field} contains invalid element symbol '{raw_symbol}'") from error
 
 
-def _validate_elements(selected_elements: Sequence[str]) -> tuple[str, ...]:
+def validate_selected_elements(selected_elements: Sequence[str]) -> tuple[str, ...]:
     if isinstance(selected_elements, str):
         raise InputValidationError("Elements must be a sequence of element symbols")
     elements = tuple(_canonical_symbol(symbol, "Elements") for symbol in selected_elements)
@@ -39,6 +40,9 @@ def _validate_elements(selected_elements: Sequence[str]) -> tuple[str, ...]:
         raise InputValidationError("Elements must not contain duplicates")
     if not any(symbol not in _OPEN_SPECIES for symbol in elements):
         raise InputValidationError("Elements must include at least one non-H/O element")
+    closed_elements = tuple(symbol for symbol in elements if symbol not in _OPEN_SPECIES)
+    if len(closed_elements) > MAX_CLOSED_ELEMENTS:
+        raise InputValidationError("Materials Project Pourbaix supports at most 4 non-H/O elements")
     return elements
 
 
@@ -90,7 +94,7 @@ def parse_formula(formula: str) -> tuple[tuple[str, ...], dict[str, float]]:
         if symbol not in symbols_in_order:
             symbols_in_order.append(symbol)
     try:
-        elements = _validate_elements(symbols_in_order)
+        elements = validate_selected_elements(symbols_in_order)
     except InputValidationError as error:
         raise InputValidationError(f"Formula is invalid: {error}") from error
     amounts = composition.get_el_amt_dict()
@@ -111,7 +115,7 @@ def parse_calculation_input(
     filter_solids: bool = True,
 ) -> CalculationInput:
     """Validate UI state before credential resolution or a network request."""
-    elements = _validate_elements(selected_elements)
+    elements = validate_selected_elements(selected_elements)
     closed_elements = tuple(element for element in elements if element not in _OPEN_SPECIES)
     canonical_ratios: dict[str, object] = {}
     for raw_symbol, value in ratios.items():
@@ -148,7 +152,7 @@ def parse_calculation_input(
 def import_legacy_element_ratio_text(elements_text: str, ratios_text: str) -> tuple[tuple[str, ...], dict[str, float]]:
     """Accept R2/R3 comma text and conventional colon-delimited ratios."""
     raw_elements = tuple(part.strip() for part in elements_text.split(",")) if isinstance(elements_text, str) else ()
-    elements = _validate_elements(raw_elements)
+    elements = validate_selected_elements(raw_elements)
     closed_elements = tuple(element for element in elements if element not in _OPEN_SPECIES)
     ratio_separator = ":" if isinstance(ratios_text, str) and "," not in ratios_text else ","
     raw_ratios = tuple(part.strip() for part in ratios_text.split(ratio_separator)) if isinstance(ratios_text, str) else ()

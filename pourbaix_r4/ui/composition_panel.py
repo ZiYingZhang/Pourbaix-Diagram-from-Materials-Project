@@ -21,7 +21,7 @@ from PySide6.QtWidgets import (
 )
 from pymatgen.core import Element
 
-from pourbaix_r4.domain import InputValidationError, parse_calculation_input, parse_formula
+from pourbaix_r4.domain import MAX_CLOSED_ELEMENTS, InputValidationError, parse_calculation_input, parse_formula, validate_selected_elements
 
 
 class PeriodicTableDialog(QDialog):
@@ -42,6 +42,8 @@ class PeriodicTableDialog(QDialog):
         self.search_input.setPlaceholderText("Search by symbol or name, e.g. Fe / Iron")
         self.search_input.textChanged.connect(self._filter_elements)
         layout.addWidget(self.search_input)
+        self.selection_limit_notice = QLabel("Up to 4 non-H/O elements")
+        layout.addWidget(self.selection_limit_notice)
 
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
@@ -100,6 +102,14 @@ class PeriodicTableDialog(QDialog):
 
     def _selection_toggled(self, symbol: str, checked: bool) -> None:
         if self._setting_selection:
+            return
+        closed_count = sum(item not in {"H", "O"} for item in self._selection_order)
+        if checked and symbol not in {"H", "O"} and closed_count >= MAX_CLOSED_ELEMENTS:
+            button = self.element_buttons[symbol]
+            button.blockSignals(True)
+            button.setChecked(False)
+            button.blockSignals(False)
+            self.selection_limit_notice.setText("Up to 4 non-H/O elements can be selected")
             return
         if checked and symbol not in self._selection_order:
             self._selection_order.append(symbol)
@@ -273,9 +283,13 @@ class CompositionPanel(QWidget):
 
     def set_selected_elements(self, elements):
         ratios, concentrations = self.ratio_values(), self.concentration_values()
-        self._elements = tuple(
-            dict.fromkeys(Element(str(element).strip().capitalize()).symbol for element in elements)
-        )
+        try:
+            canonical = tuple(dict.fromkeys(Element(str(element).strip().capitalize()).symbol for element in elements))
+            validated = validate_selected_elements(canonical)
+        except (InputValidationError, TypeError, ValueError) as error:
+            self.validation_failed.emit(str(error))
+            return
+        self._elements = validated
         self._rebuild(ratios, concentrations)
         self.input_changed.emit()
 
