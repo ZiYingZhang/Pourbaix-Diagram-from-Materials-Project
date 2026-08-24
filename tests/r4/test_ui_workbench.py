@@ -1,6 +1,6 @@
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPalette
-from PySide6.QtWidgets import QCheckBox, QComboBox, QDockWidget, QDoubleSpinBox, QFrame, QHeaderView, QLabel, QPushButton, QScrollArea, QSlider, QTabWidget, QToolBar, QToolBox
+from PySide6.QtWidgets import QCheckBox, QComboBox, QDockWidget, QDoubleSpinBox, QFrame, QHeaderView, QLabel, QLineEdit, QPushButton, QScrollArea, QSlider, QTabWidget, QToolBar, QToolButton
 
 from pourbaix_core import FetchResult
 from pourbaix_r4.credentials import ResolvedCredential
@@ -224,15 +224,25 @@ def test_postprocessing_titles_and_boundary_table_use_clear_alignment(qapplicati
     try:
         regions_group = window.findChild(QFrame, "regionsAndFillsGroup")
         regions_title = window.findChild(QLabel, "regionsAndFillsTitle")
-        toolbox = window.findChild(QToolBox, "postProcessingSections")
         assert regions_title.text() == "REGIONS AND FILLS"
         assert regions_group.isAncestorOf(regions_title)
-        assert [toolbox.itemText(index) for index in range(toolbox.count())] == [
-            "LABELS AND FONTS",
-            "LINES AND AXES",
+        section_headers = [
+            header for header in window.findChildren(QToolButton)
+            if header.property("sectionHeader") is True
+        ]
+        assert [header.text() for header in section_headers] == [
+            "ION LABELS",
+            "AXIS TITLES",
+            "AXIS AND TICKS",
+            "TICK LABELS",
+            "DOMAIN AND STABILITY LINES",
             "VIEW RANGE",
             "IMAGE EXPORT",
         ]
+        assert all(
+            header.minimumHeight() >= header.fontMetrics().height() + 12
+            for header in section_headers
+        )
         assert window.boundary_table.horizontalHeaderItem(0).text() == "DOMAIN LABEL"
         assert all(
             window.boundary_table.horizontalHeader().sectionResizeMode(column)
@@ -245,6 +255,43 @@ def test_postprocessing_titles_and_boundary_table_use_clear_alignment(qapplicati
         assert window.boundary_table.item(0, 1).textAlignment() & Qt.AlignmentFlag.AlignRight
         assert window.boundary_table.item(0, 2).textAlignment() & Qt.AlignmentFlag.AlignRight
         assert window.boundary_table.item(0, 3).textAlignment() & Qt.AlignmentFlag.AlignRight
+    finally:
+        window.close()
+
+
+def test_axis_appearance_controls_are_grouped_and_update_display_state(qapplication):
+    window = PourbaixStudioMainWindow()
+    try:
+        axis_titles = window.findChild(QFrame, "axisTitlesSection")
+        axis_ticks = window.findChild(QFrame, "axisAndTicksSection")
+        tick_labels = window.findChild(QFrame, "tickLabelsSection")
+
+        x_title = window.findChild(QLineEdit, "xAxisLabelControl")
+        x_title_size = window.findChild(QDoubleSpinBox, "xAxisLabelSizeControl")
+        show_x_ticks = window.findChild(QCheckBox, "showXTicksControl")
+        tick_direction = window.findChild(QComboBox, "majorTickDirectionControl")
+        show_y_tick_labels = window.findChild(QCheckBox, "showYTickLabelsControl")
+        tick_label_font = window.findChild(QComboBox, "axisTickFontControl")
+
+        assert axis_titles.isAncestorOf(x_title)
+        assert axis_titles.isAncestorOf(x_title_size)
+        assert axis_ticks.isAncestorOf(show_x_ticks)
+        assert axis_ticks.isAncestorOf(tick_direction)
+        assert tick_labels.isAncestorOf(show_y_tick_labels)
+        assert tick_labels.isAncestorOf(tick_label_font)
+
+        x_title.setText("Acidity")
+        x_title.editingFinished.emit()
+        x_title_size.setValue(18.0)
+        show_x_ticks.setChecked(False)
+        tick_direction.setCurrentIndex(tick_direction.findData("inout"))
+        show_y_tick_labels.setChecked(False)
+
+        assert window.appearance.x_axis_label == "Acidity"
+        assert window.appearance.x_axis_label_size == 18.0
+        assert window.appearance.show_x_ticks is False
+        assert window.appearance.major_tick_direction == "inout"
+        assert window.appearance.show_y_tick_labels is False
     finally:
         window.close()
 

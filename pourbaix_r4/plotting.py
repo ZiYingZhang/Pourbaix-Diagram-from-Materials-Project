@@ -87,13 +87,37 @@ def render_snapshot(
     axis.plot(ph_values, tuple(1.229 - 0.0591 * value for value in ph_values), color=appearance.oxygen_line_color, linewidth=appearance.stability_line_width, linestyle="--")
     axis.set_xlim(ph_min, ph_max)
     axis.set_ylim(potential_min, potential_max)
-    axis.set_xlabel(appearance.x_axis_label, fontsize=appearance.x_axis_label_size, fontname=appearance.axis_tick_font)
-    axis.set_ylabel(appearance.y_axis_label, fontsize=appearance.y_axis_label_size, fontname=appearance.axis_tick_font)
+    axis.set_xlabel(appearance.x_axis_label, fontsize=appearance.x_axis_label_size, fontname=appearance.x_axis_label_font)
+    axis.set_ylabel(appearance.y_axis_label, fontsize=appearance.y_axis_label_size, fontname=appearance.y_axis_label_font)
     for spine in axis.spines.values():
         spine.set_linewidth(appearance.spine_width)
-    axis.tick_params(which="major", direction=appearance.major_tick_direction, length=appearance.major_tick_length, width=appearance.major_tick_width, labelsize=appearance.axis_tick_font_size)
+    major_options = {
+        "direction": appearance.major_tick_direction,
+        "length": appearance.major_tick_length,
+        "width": appearance.major_tick_width,
+        "labelsize": appearance.axis_tick_font_size,
+    }
+    axis.tick_params(
+        axis="x", which="major", bottom=appearance.show_x_ticks, top=False,
+        labelbottom=appearance.show_x_tick_labels, labeltop=False, **major_options,
+    )
+    axis.tick_params(
+        axis="y", which="major", left=appearance.show_y_ticks, right=False,
+        labelleft=appearance.show_y_tick_labels, labelright=False, **major_options,
+    )
     if appearance.show_minor_ticks:
         axis.xaxis.set_minor_locator(AutoMinorLocator())
         axis.yaxis.set_minor_locator(AutoMinorLocator())
-        axis.tick_params(which="minor", direction=appearance.major_tick_direction, length=appearance.minor_tick_length, width=appearance.minor_tick_width)
+        minor_options = {
+            "direction": appearance.major_tick_direction,
+            "length": appearance.minor_tick_length,
+            "width": appearance.minor_tick_width,
+        }
+        axis.tick_params(axis="x", which="minor", bottom=appearance.show_x_ticks, top=False, **minor_options)
+        axis.tick_params(axis="y", which="minor", left=appearance.show_y_ticks, right=False, **minor_options)
+    else:
+        axis.minorticks_off()
+    for label in (*axis.get_xticklabels(), *axis.get_yticklabels()):
+        label.set_fontname(appearance.axis_tick_font)
+        label.set_fontsize(appearance.axis_tick_font_size)
     return figure

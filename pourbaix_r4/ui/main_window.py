@@ -8,12 +8,12 @@ from dataclasses import replace
 
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg, NavigationToolbar2QT
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QColor, QPalette
+from PySide6.QtGui import QColor, QFont, QPalette
 from PySide6.QtWidgets import (
     QCheckBox, QColorDialog, QComboBox, QDockWidget, QDoubleSpinBox, QFileDialog, QFormLayout,
-    QApplication, QFrame, QHeaderView, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem, QMainWindow,
-    QPushButton, QScrollArea, QSlider, QTableWidget, QTableWidgetItem, QTabWidget, QToolBar,
-    QToolBox, QVBoxLayout, QWidget,
+    QApplication, QFontComboBox, QFrame, QHeaderView, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem, QMainWindow,
+    QPushButton, QScrollArea, QSizePolicy, QSlider, QTableWidget, QTableWidgetItem, QTabWidget, QToolBar,
+    QToolButton, QVBoxLayout, QWidget,
 )
 
 from pourbaix_r4.i18n import Language, PreferenceStore
@@ -26,6 +26,38 @@ from pourbaix_r4.plotting import render_snapshot
 from pourbaix_r4.session import CalculationSession
 from pourbaix_r4.ui.composition_panel import CompositionPanel
 from pourbaix_r4.ui.api_dialog import ApiSettingsDialog
+
+
+class CollapsibleSection(QFrame):
+    """DPI-safe expandable section with a real header control."""
+
+    def __init__(self, title: str, content: QWidget, name: str, *, expanded: bool = False):
+        super().__init__()
+        self.setObjectName(f"{name}Section")
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        self.header = QToolButton()
+        self.header.setObjectName(f"{name}SectionHeader")
+        self.header.setProperty("sectionHeader", True)
+        self.header.setText(title)
+        self.header.setCheckable(True)
+        self.header.setChecked(expanded)
+        self.header.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        self.header.setArrowType(Qt.ArrowType.DownArrow if expanded else Qt.ArrowType.RightArrow)
+        self.header.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.header.setMinimumHeight(self.header.fontMetrics().height() + 16)
+        content.setObjectName(f"{name}SectionContent")
+        content.setProperty("sectionContent", True)
+        content.setVisible(expanded)
+        self.header.toggled.connect(
+            lambda visible: (
+                content.setVisible(visible),
+                self.header.setArrowType(Qt.ArrowType.DownArrow if visible else Qt.ArrowType.RightArrow),
+            )
+        )
+        layout.addWidget(self.header)
+        layout.addWidget(content)
 
 
 class PourbaixStudioMainWindow(QMainWindow):
@@ -80,7 +112,7 @@ class PourbaixStudioMainWindow(QMainWindow):
         post_layout = QVBoxLayout(post_content)
         post_layout.setContentsMargins(10, 10, 10, 10)
         post_layout.addWidget(self._build_regions_group())
-        post_layout.addWidget(self._build_appearance_toolbox())
+        post_layout.addWidget(self._build_appearance_sections())
         post_layout.addStretch(1)
         post_scroll = self._scroll_area("postProcessingScrollArea", post_content)
         post_outer_layout.addWidget(post_scroll, 1)
@@ -153,30 +185,74 @@ class PourbaixStudioMainWindow(QMainWindow):
         self._refresh_region_color_button()
         return group
 
-    def _build_appearance_toolbox(self) -> QToolBox:
-        toolbox = QToolBox()
-        toolbox.setObjectName("postProcessingSections")
-        toolbox.addItem(self._build_labels_page(), "LABELS AND FONTS")
-        toolbox.addItem(self._build_lines_page(), "LINES AND AXES")
-        toolbox.addItem(self._build_view_page(), "VIEW RANGE")
-        toolbox.addItem(self._build_export_page(), "IMAGE EXPORT")
-        return toolbox
+    def _build_appearance_sections(self) -> QWidget:
+        container = QWidget()
+        container.setObjectName("postProcessingSections")
+        layout = QVBoxLayout(container)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(6)
+        sections = (
+            ("ION LABELS", self._build_labels_page(), "ionLabels", True),
+            ("AXIS TITLES", self._build_axis_titles_page(), "axisTitles", False),
+            ("AXIS AND TICKS", self._build_axis_ticks_page(), "axisAndTicks", False),
+            ("TICK LABELS", self._build_tick_labels_page(), "tickLabels", False),
+            ("DOMAIN AND STABILITY LINES", self._build_lines_page(), "domainLines", False),
+            ("VIEW RANGE", self._build_view_page(), "viewRange", False),
+            ("IMAGE EXPORT", self._build_export_page(), "imageExport", False),
+        )
+        for title, page, name, expanded in sections:
+            layout.addWidget(CollapsibleSection(title, page, name, expanded=expanded))
+        return container
 
     def _build_labels_page(self) -> QWidget:
         page = QWidget(); form = QFormLayout(page); self._configure_form(form)
         labels = QCheckBox("Show ion labels"); labels.setObjectName("showIonLabelsControl"); labels.setChecked(self.appearance.show_ion_labels); labels.toggled.connect(self.set_show_ion_labels); form.addRow(labels)
-        self.ion_label_font = QComboBox(); self.ion_label_font.setObjectName("ionLabelFontControl"); self.ion_label_font.addItems(["Arial", "DejaVu Sans", "Times New Roman"]); self.ion_label_font.setCurrentText(self.appearance.ion_label_font); self.ion_label_font.currentTextChanged.connect(lambda value: self.apply_appearance(ion_label_font=value)); form.addRow("Ion label font", self.ion_label_font)
-        self.axis_tick_font = QComboBox(); self.axis_tick_font.setObjectName("axisTickFontControl"); self.axis_tick_font.addItems(["Arial", "DejaVu Sans", "Times New Roman"]); self.axis_tick_font.setCurrentText(self.appearance.axis_tick_font); self.axis_tick_font.currentTextChanged.connect(lambda value: self.apply_appearance(axis_tick_font=value)); form.addRow("Axis/tick font", self.axis_tick_font)
+        self.ion_label_font = self._font_combo("ionLabelFontControl", self.appearance.ion_label_font, lambda value: self.apply_appearance(ion_label_font=value)); form.addRow("Font", self.ion_label_font)
         self.ion_label_size = self._appearance_spin("ionLabelSizeControl", self.appearance.ion_label_font_size, lambda value: self.apply_appearance(ion_label_font_size=value)); form.addRow("Ion label size", self.ion_label_size)
-        self.axis_tick_size = self._appearance_spin("axisTickSizeControl", self.appearance.axis_tick_font_size, lambda value: self.apply_appearance(axis_tick_font_size=value)); form.addRow("Axis/tick size", self.axis_tick_size)
+        label_background = QCheckBox("Fill label background"); label_background.setObjectName("fillIonLabelBackgroundControl"); label_background.setChecked(self.appearance.fill_ion_label_background); label_background.toggled.connect(lambda value: self.apply_appearance(fill_ion_label_background=value)); form.addRow(label_background)
+        label_background_color = QLineEdit(self.appearance.ion_label_background_color); label_background_color.setObjectName("ionLabelBackgroundColorControl"); label_background_color.editingFinished.connect(lambda: self.apply_appearance(ion_label_background_color=label_background_color.text())); form.addRow("Background", label_background_color)
+        label_background_alpha = self._appearance_spin("ionLabelBackgroundAlphaControl", self.appearance.ion_label_background_alpha, lambda value: self.apply_appearance(ion_label_background_alpha=value), maximum=1.0, step=0.05); form.addRow("Background opacity", label_background_alpha)
+        return page
+
+    def _build_axis_titles_page(self) -> QWidget:
+        page = QWidget(); form = QFormLayout(page); self._configure_form(form)
+        self.x_axis_label = QLineEdit(self.appearance.x_axis_label); self.x_axis_label.setObjectName("xAxisLabelControl"); self.x_axis_label.editingFinished.connect(lambda: self.apply_appearance(x_axis_label=self.x_axis_label.text())); form.addRow("X title", self.x_axis_label)
+        self.x_axis_label_font = self._font_combo("xAxisLabelFontControl", self.appearance.x_axis_label_font, lambda value: self.apply_appearance(x_axis_label_font=value)); form.addRow("X title font", self.x_axis_label_font)
+        self.x_axis_label_size = self._appearance_spin("xAxisLabelSizeControl", self.appearance.x_axis_label_size, lambda value: self.apply_appearance(x_axis_label_size=value)); form.addRow("X title size", self.x_axis_label_size)
+        self.y_axis_label = QLineEdit(self.appearance.y_axis_label); self.y_axis_label.setObjectName("yAxisLabelControl"); self.y_axis_label.editingFinished.connect(lambda: self.apply_appearance(y_axis_label=self.y_axis_label.text())); form.addRow("Y title", self.y_axis_label)
+        self.y_axis_label_font = self._font_combo("yAxisLabelFontControl", self.appearance.y_axis_label_font, lambda value: self.apply_appearance(y_axis_label_font=value)); form.addRow("Y title font", self.y_axis_label_font)
+        self.y_axis_label_size = self._appearance_spin("yAxisLabelSizeControl", self.appearance.y_axis_label_size, lambda value: self.apply_appearance(y_axis_label_size=value)); form.addRow("Y title size", self.y_axis_label_size)
+        return page
+
+    def _build_axis_ticks_page(self) -> QWidget:
+        page = QWidget(); form = QFormLayout(page); self._configure_form(form)
+        self.show_x_ticks = QCheckBox("Show X-axis ticks"); self.show_x_ticks.setObjectName("showXTicksControl"); self.show_x_ticks.setChecked(self.appearance.show_x_ticks); self.show_x_ticks.toggled.connect(lambda value: self.apply_appearance(show_x_ticks=value)); form.addRow(self.show_x_ticks)
+        self.show_y_ticks = QCheckBox("Show Y-axis ticks"); self.show_y_ticks.setObjectName("showYTicksControl"); self.show_y_ticks.setChecked(self.appearance.show_y_ticks); self.show_y_ticks.toggled.connect(lambda value: self.apply_appearance(show_y_ticks=value)); form.addRow(self.show_y_ticks)
+        self.major_tick_direction = QComboBox(); self.major_tick_direction.setObjectName("majorTickDirectionControl")
+        for text, value in (("Out", "out"), ("In", "in"), ("In & Out", "inout")):
+            self.major_tick_direction.addItem(text, value)
+        self.major_tick_direction.setCurrentIndex(self.major_tick_direction.findData(self.appearance.major_tick_direction))
+        self.major_tick_direction.currentIndexChanged.connect(lambda index: self.apply_appearance(major_tick_direction=self.major_tick_direction.itemData(index))); form.addRow("Direction", self.major_tick_direction)
+        major_length = self._appearance_spin("majorTickLengthControl", self.appearance.major_tick_length, lambda value: self.apply_appearance(major_tick_length=value)); form.addRow("Major length", major_length)
+        major_width = self._appearance_spin("majorTickWidthControl", self.appearance.major_tick_width, lambda value: self.apply_appearance(major_tick_width=value)); form.addRow("Major width", major_width)
+        self.minor_ticks = QCheckBox("Show minor ticks"); self.minor_ticks.setObjectName("showMinorTicksControl"); self.minor_ticks.setChecked(self.appearance.show_minor_ticks); self.minor_ticks.toggled.connect(lambda value: self.apply_appearance(show_minor_ticks=value)); form.addRow(self.minor_ticks)
+        minor_length = self._appearance_spin("minorTickLengthControl", self.appearance.minor_tick_length, lambda value: self.apply_appearance(minor_tick_length=value)); form.addRow("Minor length", minor_length)
+        minor_width = self._appearance_spin("minorTickWidthControl", self.appearance.minor_tick_width, lambda value: self.apply_appearance(minor_tick_width=value)); form.addRow("Minor width", minor_width)
+        spine = self._appearance_spin("spineWidthControl", self.appearance.spine_width, lambda value: self.set_line_style(spine_width=value)); form.addRow("Axis line width", spine)
+        return page
+
+    def _build_tick_labels_page(self) -> QWidget:
+        page = QWidget(); form = QFormLayout(page); self._configure_form(form)
+        self.show_x_tick_labels = QCheckBox("Show X tick labels"); self.show_x_tick_labels.setObjectName("showXTickLabelsControl"); self.show_x_tick_labels.setChecked(self.appearance.show_x_tick_labels); self.show_x_tick_labels.toggled.connect(lambda value: self.apply_appearance(show_x_tick_labels=value)); form.addRow(self.show_x_tick_labels)
+        self.show_y_tick_labels = QCheckBox("Show Y tick labels"); self.show_y_tick_labels.setObjectName("showYTickLabelsControl"); self.show_y_tick_labels.setChecked(self.appearance.show_y_tick_labels); self.show_y_tick_labels.toggled.connect(lambda value: self.apply_appearance(show_y_tick_labels=value)); form.addRow(self.show_y_tick_labels)
+        self.axis_tick_font = self._font_combo("axisTickFontControl", self.appearance.axis_tick_font, lambda value: self.apply_appearance(axis_tick_font=value)); form.addRow("Font", self.axis_tick_font)
+        self.axis_tick_size = self._appearance_spin("axisTickSizeControl", self.appearance.axis_tick_font_size, lambda value: self.apply_appearance(axis_tick_font_size=value)); form.addRow("Size", self.axis_tick_size)
         return page
 
     def _build_lines_page(self) -> QWidget:
         page = QWidget(); form = QFormLayout(page); self._configure_form(form)
-        spine = self._appearance_spin("spineWidthControl", self.appearance.spine_width, lambda value: self.set_line_style(spine_width=value)); form.addRow("Spine width", spine)
         solid = self._appearance_spin("solidLineWidthControl", self.appearance.solid_line_width, lambda value: self.set_line_style(solid_line_width=value)); form.addRow("Solid line width", solid)
         stability = self._appearance_spin("stabilityLineWidthControl", self.appearance.stability_line_width, lambda value: self.set_line_style(stability_line_width=value)); form.addRow("Stability line width", stability)
-        self.minor_ticks = QCheckBox("Show minor ticks"); self.minor_ticks.setChecked(self.appearance.show_minor_ticks); self.minor_ticks.toggled.connect(lambda value: self.apply_appearance(show_minor_ticks=value)); form.addRow(self.minor_ticks)
         self.hydrogen_color = QLineEdit(self.appearance.hydrogen_line_color); self.hydrogen_color.setObjectName("hydrogenLineColorControl"); self.hydrogen_color.editingFinished.connect(lambda: self.set_line_style(hydrogen_line_color=self.hydrogen_color.text())); form.addRow("Hydrogen line", self.hydrogen_color)
         self.oxygen_color = QLineEdit(self.appearance.oxygen_line_color); self.oxygen_color.setObjectName("oxygenLineColorControl"); self.oxygen_color.editingFinished.connect(lambda: self.set_line_style(oxygen_line_color=self.oxygen_color.text())); form.addRow("Oxygen line", self.oxygen_color)
         return page
@@ -227,7 +303,7 @@ class PourbaixStudioMainWindow(QMainWindow):
         self.setPalette(palette)
         self.setStyleSheet(
             """
-            QMainWindow, QDockWidget, QScrollArea, QToolBox, #diagramHost {
+            QMainWindow, QDockWidget, QScrollArea, #diagramHost {
                 background-color: #E6EAF0;
                 color: #1F2937;
             }
@@ -279,15 +355,23 @@ class PourbaixStudioMainWindow(QMainWindow):
                 font-weight: 600;
                 padding: 2px 0 6px 0;
             }
-            QToolBox::tab {
+            QToolButton[sectionHeader="true"] {
                 background-color: #E1E6EC;
                 color: #1F2937;
                 border: 1px solid #AEB8C3;
-                padding: 7px 9px;
+                border-radius: 3px;
+                padding: 6px 9px;
                 font-weight: 600;
+                text-align: left;
             }
-            QToolBox::tab:selected {
+            QToolButton[sectionHeader="true"]:checked {
                 background-color: #D1DAE3;
+            }
+            QWidget[sectionContent="true"] {
+                background-color: #F1F3F6;
+                border-left: 1px solid #AEB8C3;
+                border-right: 1px solid #AEB8C3;
+                border-bottom: 1px solid #AEB8C3;
             }
             QLineEdit, QComboBox, QDoubleSpinBox, QListWidget, QTableWidget {
                 background-color: #DCE1E7;
@@ -338,6 +422,9 @@ class PourbaixStudioMainWindow(QMainWindow):
 
     def _appearance_spin(self, name, value, callback, *, maximum=100.0, step=0.1):
         control = QDoubleSpinBox(); control.setObjectName(name); control.setRange(0.0, maximum); control.setSingleStep(step); control.setValue(value); control.valueChanged.connect(callback); return control
+
+    def _font_combo(self, name, value, callback):
+        control = QFontComboBox(); control.setObjectName(name); control.setCurrentFont(QFont(value)); control.currentFontChanged.connect(lambda font: callback(font.family())); return control
 
     @staticmethod
     def _configure_form(form: QFormLayout) -> None:

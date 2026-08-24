@@ -86,6 +86,55 @@ def test_render_snapshot_applies_r2_appearance_settings_and_interest_region_fill
     assert all(line.get_linestyle() == "--" for line in water_lines)
 
 
+def test_render_snapshot_applies_independent_axis_title_fonts_and_sizes():
+    appearance = AppearanceSettings(
+        x_axis_label="Acidity",
+        x_axis_label_font="DejaVu Sans",
+        x_axis_label_size=17.0,
+        y_axis_label="Applied potential",
+        y_axis_label_font="DejaVu Serif",
+        y_axis_label_size=19.0,
+    )
+
+    axis = render_snapshot(_snapshot(), appearance, []).axes[0]
+
+    assert axis.get_xlabel() == "Acidity"
+    assert axis.xaxis.label.get_fontfamily()[0] == "DejaVu Sans"
+    assert axis.xaxis.label.get_fontsize() == 17.0
+    assert axis.get_ylabel() == "Applied potential"
+    assert axis.yaxis.label.get_fontfamily()[0] == "DejaVu Serif"
+    assert axis.yaxis.label.get_fontsize() == 19.0
+
+
+def test_render_snapshot_controls_tick_marks_and_tick_labels_independently():
+    appearance = AppearanceSettings(
+        show_x_ticks=False,
+        show_y_ticks=True,
+        major_tick_direction="inout",
+        major_tick_length=9.0,
+        major_tick_width=1.7,
+        show_minor_ticks=False,
+        show_x_tick_labels=False,
+        show_y_tick_labels=True,
+        axis_tick_font="DejaVu Serif",
+        axis_tick_font_size=13.0,
+    )
+
+    axis = render_snapshot(_snapshot(), appearance, []).axes[0]
+    x_tick = axis.xaxis.get_major_ticks()[0]
+    y_tick = axis.yaxis.get_major_ticks()[0]
+
+    assert x_tick.tick1line.get_visible() is False
+    assert y_tick.tick1line.get_visible() is True
+    assert y_tick._tickdir == "inout"
+    assert y_tick.tick1line.get_markersize() == 9.0
+    assert y_tick.tick1line.get_markeredgewidth() == 1.7
+    assert all(label.get_visible() is False for label in axis.get_xticklabels())
+    assert all(label.get_visible() is True for label in axis.get_yticklabels())
+    assert all(label.get_fontfamily()[0] == "DejaVu Serif" for label in axis.get_yticklabels())
+    assert all(label.get_fontsize() == 13.0 for label in axis.get_yticklabels())
+
+
 def test_render_snapshot_accepts_postprocessing_view_limits():
     figure = render_snapshot(
         _snapshot(),

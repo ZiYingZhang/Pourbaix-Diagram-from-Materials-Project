@@ -49,8 +49,10 @@ class AppearanceSettings:
     axis_tick_font: str = "Arial"
     axis_tick_font_size: float = 24.0
     x_axis_label: str = "pH"
+    x_axis_label_font: str = "Arial"
     x_axis_label_size: float = 28.0
     y_axis_label: str = "E (V vs. SHE)"
+    y_axis_label_font: str = "Arial"
     y_axis_label_size: float = 28.0
     spine_width: float = 1.5
     solid_line_width: float = 2.0
@@ -58,9 +60,13 @@ class AppearanceSettings:
     major_tick_direction: str = "out"
     major_tick_length: float = 8.0
     major_tick_width: float = 1.0
+    show_x_ticks: bool = True
+    show_y_ticks: bool = True
     show_minor_ticks: bool = True
     minor_tick_length: float = 4.0
     minor_tick_width: float = 0.5
+    show_x_tick_labels: bool = True
+    show_y_tick_labels: bool = True
     hydrogen_line_color: str = "#FF0000"
     oxygen_line_color: str = "#0070C0"
 
