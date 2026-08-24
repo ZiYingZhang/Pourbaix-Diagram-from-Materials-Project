@@ -1,14 +1,20 @@
-# Pourbaix GUI R3.0 — Windows Quick Start
+# Pourbaix Studio R4 — Windows Quick Start
 
-1. Download `pourbaix_gui_R3-win64.zip` from the GitHub R3.0 release and extract the whole archive.
-2. Keep `pourbaix_gui_R3.exe` beside its `_internal` directory; do not move the executable alone.
-3. Launch `pourbaix_gui_R3.exe`. No Python installation or administrator rights are required.
-4. Paste your own Materials Project API key into the password field. Never add a key to the extracted folder before sharing it.
-5. For a first calculation, keep the defaults: elements `Ti,O`, ratio `1.0` for Ti, pH `0,14`, and potential `-2,4` V versus SHE.
-6. Add `H` or `O` to the element list only when needed for the API chemical system. Do not add ratios for H/O; they are open species and are excluded from `comp_dict`.
+1. Extract `PourbaixStudioR4-win64.zip` completely.
+2. Keep `PourbaixStudioR4.exe` beside its `_internal` directory. Move or copy the complete `PourbaixStudioR4` folder, not the EXE alone.
+3. Launch `PourbaixStudioR4.exe`. The portable package does not require a separate Python installation or administrator rights.
+4. Open **API settings**, follow the Materials Project link, paste your API key, and optionally save it securely in Windows Credential Manager.
+5. Enter a formula or choose up to four closed elements. H and O are open reservoirs and do not receive ratios or concentrations.
+6. Set composition ratios, optional ion concentrations, solid filtering, pH range, and potential range; then choose **Generate diagram**.
+7. Use the right sidebar to choose region fills and change labels, axes, ticks, lines, view range, DPI, or transparency. **Re-plot current result** applies these changes without another API request.
+8. Export figures as PNG, SVG, or TIFF and boundary data as CSV, XLSX, or TXT.
 
-The application requires network access for Materials Project queries. Figure export supports PNG, JPEG, TIFF, and SVG. Boundary export supports CSV, XLSX, and tab-separated TXT.
+The application needs internet access only when querying Materials Project. A remembered API key belongs to the current Windows user and remains available if the application folder is moved. Do not place `mp_api_key.txt` in a folder that will be shared.
 
-Runtime logs are written to `%LOCALAPPDATA%\PourbaixGUI\logs\pourbaix_gui_R3_runtime.log`. API keys are not intentionally logged or packaged. For a diagnostic import check, run `pourbaix_gui_R3.exe --self-test` from PowerShell or Command Prompt and inspect the process exit code.
+For a diagnostic import check, run this from PowerShell:
 
-Clean-machine acceptance for the final archive remains Pending until the archive is tested on a separate Windows x64 machine without Python.
+```powershell
+.\PourbaixStudioR4.exe --self-test
+```
+
+Clean-machine acceptance for a final ZIP remains pending until that exact archive is tested on a separate Windows x64 computer without Python.

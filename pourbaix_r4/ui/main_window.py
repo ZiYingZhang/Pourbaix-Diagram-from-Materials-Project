@@ -22,6 +22,7 @@ from pourbaix_r4.credentials import WindowsCredentialStore, resolve_api_key
 from pourbaix_r4.exporting import ExportError, export_boundaries, export_figure
 from pourbaix_r4.materials_project import CachedEntryService, MPResterEntryProvider
 from pourbaix_r4.models import AppearanceSettings, InterestRegion, ResultSnapshot
+from pourbaix_r4.paths import legacy_api_key_path
 from pourbaix_r4.plotting import render_snapshot
 from pourbaix_r4.session import CalculationSession
 from pourbaix_r4.ui.composition_panel import CompositionPanel
@@ -73,7 +74,7 @@ class PourbaixStudioMainWindow(QMainWindow):
         self._language: Language = self.preferences.language()
         self._entry_service = entry_service or CachedEntryService(MPResterEntryProvider())
         self._credential_resolver = credential_resolver or (
-            lambda: resolve_api_key(None, WindowsCredentialStore(), Path.cwd() / "mp_api_key.txt")
+            lambda: resolve_api_key(None, WindowsCredentialStore(), legacy_api_key_path())
         )
         self._calculate = calculate
         self.setWindowTitle("Pourbaix Studio R4")

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-from importlib.metadata import version
 from typing import Sequence
 
 
@@ -16,8 +15,6 @@ def run_self_test() -> int:
     from PySide6 import QtCore  # noqa: F401
     from pymatgen.analysis import pourbaix_diagram  # noqa: F401
 
-    for distribution in ("PySide6", "keyring", "mp-api", "pymatgen", "pymatgen-core"):
-        version(distribution)
     print("R4 self-test: OK")
     return 0
 

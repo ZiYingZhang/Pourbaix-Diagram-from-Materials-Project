@@ -1,36 +1,39 @@
 # Project Memory
 
-Last updated: 2026-08-15
+Last updated: 2026-08-25
 
 ## Authoritative documents
 
-- Design: `docs/superpowers/specs/2026-08-15-pourbaix-r3-compatibility-design.md`
+- R4 design: `docs/superpowers/specs/2026-08-22-pourbaix-r4-pyside6-design.md`
+- R4 implementation plan: `docs/superpowers/plans/2026-08-22-pourbaix-r4-implementation.md`
 - Research application specification: `docs/research-app-spec.md`
 - Numerical contract: `docs/numerical-contract.md`
 - Acceptance checklist: `docs/acceptance-checklist.md`
-- Implementation plan: `docs/superpowers/plans/2026-08-15-pourbaix-r3-implementation.md`
 
 ## Current handoff
 
-- Checkpoint: R3.1 candidate addressing the TiO2 default and MPContribs diagnostics is in progress.
-- Last evidence: 43 tests pass; venv `ContribsClient` initializes, so the packaged failure was frozen-runtime specific and is now surfaced through warnings capture plus a clear error.
-- Next task: run packaged `--contribs-probe`, rebuild the final ZIP, then publish.
-- Branch: `codex/r3-compatibility-release`.
+- Branch: `codex/r4-foundation`
+- Checkpoint: R4 core UI, plotting, portable source paths, and Windows `onedir` packaging are implemented.
+- Latest source evidence: 155 tests passed; R4 source self-test and GUI smoke passed.
+- Latest package evidence: packaged and extracted self-test/GUI smoke passed for `_release/R4.0/PourbaixStudioR4-win64.zip`.
+- Candidate SHA-256: `0CC7E74203BB594C8ABEF48C14CD27E1FBF711ED9C8873CE20D13B3AEA6F7D3F`.
+- The candidate manifest records a dirty working tree because it was built before the implementation commit and while the user-owned untracked `test Sb2Se3.svg` was present. Rebuild after committing before treating an archive as final.
+- Next product task: style presets; design was discussed but not yet implemented.
 
 ## Non-negotiable behavior
 
 - pH is dimensionless; potential is volts versus SHE.
 - H/O are open species and excluded from `comp_dict`.
-- Display styling cannot change exported boundary data.
+- Up to four closed elements are supported.
+- Display styling cannot change calculated or exported boundary data.
+- Re-plotting from a current snapshot cannot make an API request.
 - Failed calculations cannot leave stale figures exportable.
-- The app never persists API keys.
+- API keys use Windows Credential Manager for new persistence and are never packaged.
+- Preserve the user-owned untracked `test Sb2Se3.svg`.
 
-## Resume procedure
+## Portable release
 
-1. Read this file and its authoritative documents.
-2. Run the latest verification commands recorded in `release-manifest.json` if present.
-3. Continue the first unchecked plan/checklist item.
-
-## Latest build evidence
-
-`_release/R3.0/release-manifest.json` is the single source for the current archive name, byte size, entry count, SHA-256, test counts, smoke exit codes, source commit, toolchain, build time, and external acceptance status. The GitHub release must upload that manifest beside the exact ZIP; do not copy an earlier candidate hash into this file.
+- Build command: `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\build_release_r4.ps1`.
+- Default source runtime: `.venv-pourbaix-py313\Scripts\python.exe`; recreate the virtual environment after moving the source folder.
+- Distribute the complete `PourbaixStudioR4` directory or its ZIP. Never move `PourbaixStudioR4.exe` without `_internal`.
+- Clean-machine Windows x64 validation without Python is still Pending and must be tied to the final archive SHA-256.

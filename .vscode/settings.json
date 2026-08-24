@@ -1,7 +1,7 @@
 {
-  "python.defaultInterpreterPath": "E:\\Research Library\\Data\\materials project\\Pourbaix-Diagram-from-Materials-Project\\.venv-pourbaix-py313\\Scripts\\python.exe",
+  "python.defaultInterpreterPath": "${workspaceFolder}\\.venv-pourbaix-py313\\Scripts\\python.exe",
   "code-runner.executorMap": {
-    "python": "\"E:\\Research Library\\Data\\materials project\\Pourbaix-Diagram-from-Materials-Project\\.venv-pourbaix-py313\\Scripts\\python.exe\" -u"
+    "python": "\"${workspaceFolder}\\.venv-pourbaix-py313\\Scripts\\python.exe\" -u"
   },
   "python.testing.pytestEnabled": true,
   "python.testing.pytestArgs": [

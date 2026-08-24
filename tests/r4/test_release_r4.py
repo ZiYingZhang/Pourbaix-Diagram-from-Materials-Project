@@ -8,6 +8,17 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = REPO_ROOT / "pourbaix_studio_R4.py"
 
 
+def test_r4_self_test_does_not_scan_distribution_metadata(monkeypatch):
+    import pourbaix_studio_R4
+
+    def fail_if_called(_distribution):
+        raise AssertionError("frozen self-test must not scan distribution metadata")
+
+    monkeypatch.setattr(pourbaix_studio_R4, "version", fail_if_called, raising=False)
+
+    assert pourbaix_studio_R4.run_self_test() == 0
+
+
 def test_r4_self_test_runs_without_constructing_a_window(tmp_path):
     completed = subprocess.run(
         [sys.executable, str(SCRIPT), "--self-test"],
