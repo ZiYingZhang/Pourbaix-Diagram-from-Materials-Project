@@ -219,6 +219,19 @@ def test_sidebars_scroll_and_region_color_controls_share_one_section(qapplicatio
         window.close()
 
 
+def test_shallow_gray_theme_keeps_active_and_disabled_controls_readable(qapplication):
+    window = PourbaixStudioMainWindow()
+    try:
+        palette = window.palette()
+        assert qapplication.style().objectName().casefold() == "fusion"
+        assert palette.color(QPalette.ColorGroup.Active, QPalette.ColorRole.Window).name() == "#e6eaf0"
+        assert palette.color(QPalette.ColorGroup.Active, QPalette.ColorRole.WindowText).name() == "#1f2937"
+        assert palette.color(QPalette.ColorGroup.Disabled, QPalette.ColorRole.ButtonText).name() == "#7b8794"
+        assert palette.color(QPalette.ColorGroup.Disabled, QPalette.ColorRole.Text).name() == "#7b8794"
+    finally:
+        window.close()
+
+
 def test_selected_region_color_and_opacity_are_applied_together(qapplication):
     window = PourbaixStudioMainWindow()
     try:

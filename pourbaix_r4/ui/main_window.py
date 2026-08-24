@@ -11,7 +11,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QPalette
 from PySide6.QtWidgets import (
     QCheckBox, QColorDialog, QComboBox, QDockWidget, QDoubleSpinBox, QFileDialog, QFormLayout,
-    QFrame, QGroupBox, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem, QMainWindow,
+    QApplication, QFrame, QGroupBox, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem, QMainWindow,
     QPushButton, QScrollArea, QSlider, QTableWidget, QTableWidgetItem, QTabWidget, QToolBar,
     QToolBox, QVBoxLayout, QWidget,
 )
@@ -52,7 +52,7 @@ class PourbaixStudioMainWindow(QMainWindow):
     def _build_workspace(self) -> None:
         self.workspace_tabs = QTabWidget()
         self.workspace_tabs.setObjectName("workspaceTabs")
-        self.diagram_host = QWidget(); self.diagram_layout = QVBoxLayout(self.diagram_host)
+        self.diagram_host = QWidget(); self.diagram_host.setObjectName("diagramHost"); self.diagram_layout = QVBoxLayout(self.diagram_host)
         self.diagram_layout.addWidget(QLabel("Generate a diagram to begin."))
         self.workspace_tabs.addTab(self.diagram_host, "Diagram")
         self.available_regions = QListWidget(); self.workspace_tabs.addTab(self.available_regions, "Available regions")
@@ -191,17 +191,105 @@ class PourbaixStudioMainWindow(QMainWindow):
         return page
 
     def _apply_light_palette(self) -> None:
+        application = QApplication.instance()
+        if application is not None:
+            application.setStyle("Fusion")
         palette = QPalette()
-        palette.setColor(QPalette.ColorRole.Window, QColor("#F4F7FB"))
-        palette.setColor(QPalette.ColorRole.WindowText, QColor("#1F2937"))
-        palette.setColor(QPalette.ColorRole.Base, QColor("#FFFFFF"))
-        palette.setColor(QPalette.ColorRole.AlternateBase, QColor("#EDF2F7"))
-        palette.setColor(QPalette.ColorRole.Text, QColor("#1F2937"))
-        palette.setColor(QPalette.ColorRole.Button, QColor("#F9FBFD"))
-        palette.setColor(QPalette.ColorRole.ButtonText, QColor("#1F2937"))
-        palette.setColor(QPalette.ColorRole.Highlight, QColor("#2D83A7"))
-        palette.setColor(QPalette.ColorRole.HighlightedText, QColor("#FFFFFF"))
+        for group in (QPalette.ColorGroup.Active, QPalette.ColorGroup.Inactive):
+            palette.setColor(group, QPalette.ColorRole.Window, QColor("#E6EAF0"))
+            palette.setColor(group, QPalette.ColorRole.WindowText, QColor("#1F2937"))
+            palette.setColor(group, QPalette.ColorRole.Base, QColor("#DCE1E7"))
+            palette.setColor(group, QPalette.ColorRole.AlternateBase, QColor("#D3D9E0"))
+            palette.setColor(group, QPalette.ColorRole.Text, QColor("#1F2937"))
+            palette.setColor(group, QPalette.ColorRole.Button, QColor("#DCE4EC"))
+            palette.setColor(group, QPalette.ColorRole.ButtonText, QColor("#1F2937"))
+            palette.setColor(group, QPalette.ColorRole.Highlight, QColor("#2D83A7"))
+            palette.setColor(group, QPalette.ColorRole.HighlightedText, QColor("#FFFFFF"))
+            palette.setColor(group, QPalette.ColorRole.PlaceholderText, QColor("#657384"))
+        disabled = QPalette.ColorGroup.Disabled
+        palette.setColor(disabled, QPalette.ColorRole.Window, QColor("#E6EAF0"))
+        palette.setColor(disabled, QPalette.ColorRole.WindowText, QColor("#7B8794"))
+        palette.setColor(disabled, QPalette.ColorRole.Base, QColor("#E2E6EB"))
+        palette.setColor(disabled, QPalette.ColorRole.AlternateBase, QColor("#DDE2E8"))
+        palette.setColor(disabled, QPalette.ColorRole.Text, QColor("#7B8794"))
+        palette.setColor(disabled, QPalette.ColorRole.Button, QColor("#E1E5EA"))
+        palette.setColor(disabled, QPalette.ColorRole.ButtonText, QColor("#7B8794"))
+        palette.setColor(disabled, QPalette.ColorRole.Highlight, QColor("#B5C0CB"))
+        palette.setColor(disabled, QPalette.ColorRole.HighlightedText, QColor("#F4F6F8"))
+        palette.setColor(disabled, QPalette.ColorRole.PlaceholderText, QColor("#8B96A2"))
+        if application is not None:
+            application.setPalette(palette)
         self.setPalette(palette)
+        self.setStyleSheet(
+            """
+            QMainWindow, QDockWidget, QScrollArea, QToolBox, #diagramHost {
+                background-color: #E6EAF0;
+                color: #1F2937;
+            }
+            QToolBar, QDockWidget::title {
+                background-color: #D3D9E0;
+                color: #1F2937;
+                border-bottom: 1px solid #AEB8C3;
+            }
+            QTabWidget::pane {
+                background-color: #E6EAF0;
+                border: 1px solid #AEB8C3;
+            }
+            QTabBar::tab {
+                background-color: #D3D9E0;
+                color: #344150;
+                border: 1px solid #AEB8C3;
+                padding: 6px 12px;
+            }
+            QTabBar::tab:selected {
+                background-color: #F1F3F6;
+                color: #1F2937;
+            }
+            QGroupBox, QToolBox::tab {
+                background-color: #F1F3F6;
+                color: #1F2937;
+                border: 1px solid #AEB8C3;
+            }
+            QLineEdit, QComboBox, QDoubleSpinBox, QListWidget, QTableWidget {
+                background-color: #DCE1E7;
+                color: #1F2937;
+                border: 1px solid #AEB8C3;
+                selection-background-color: #2D83A7;
+                selection-color: #FFFFFF;
+            }
+            QPushButton, QToolButton {
+                background-color: #DCE4EC;
+                color: #1F2937;
+                border: 1px solid #9EABB8;
+                border-radius: 4px;
+                padding: 5px 8px;
+            }
+            QPushButton:hover, QToolButton:hover {
+                background-color: #CAD6E1;
+            }
+            QPushButton:pressed, QToolButton:pressed {
+                background-color: #B9C8D5;
+            }
+            QWidget:disabled, QPushButton:disabled, QToolButton:disabled,
+            QLineEdit:disabled, QComboBox:disabled, QDoubleSpinBox:disabled {
+                background-color: #E1E5EA;
+                color: #7B8794;
+                border-color: #C2CAD3;
+            }
+            QScrollBar:vertical {
+                background-color: #D8DDE3;
+                width: 12px;
+            }
+            QScrollBar::handle:vertical {
+                background-color: #9EABB8;
+                min-height: 28px;
+                border-radius: 5px;
+            }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+                height: 0px;
+            }
+            """
+        )
 
     def _build_toolbar(self) -> None:
         toolbar = QToolBar("Tools", self); self.addToolBar(toolbar)
