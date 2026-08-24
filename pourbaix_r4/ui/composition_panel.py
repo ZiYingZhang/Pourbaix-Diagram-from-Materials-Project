@@ -181,8 +181,8 @@ class CompositionPanel(QWidget):
         range_group = QGroupBox("DIAGRAM RANGE")
         ranges = QFormLayout(range_group)
         self._configure_form(ranges)
-        self.ph_min, self.ph_max = QLineEdit("0"), QLineEdit("14")
-        self.potential_min, self.potential_max = QLineEdit("-2"), QLineEdit("4")
+        self.ph_min, self.ph_max = QLineEdit("-2"), QLineEdit("16")
+        self.potential_min, self.potential_max = QLineEdit("-4"), QLineEdit("4")
         for label, field in (
             ("pH min", self.ph_min),
             ("pH max", self.ph_max),

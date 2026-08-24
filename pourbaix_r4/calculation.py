@@ -6,7 +6,7 @@ from collections.abc import Callable, Sequence
 from typing import Any
 
 from pymatgen.analysis.pourbaix_diagram import PourbaixDiagram, PourbaixPlotter
-from shapely.geometry import Polygon, box
+from shapely.geometry import MultiPoint, box
 
 from pourbaix_r4.models import BoundaryRecord, CalculationInput, ResultSnapshot
 
@@ -14,8 +14,10 @@ from pourbaix_r4.models import BoundaryRecord, CalculationInput, ResultSnapshot
 def _clipped_vertices(
     vertices: Sequence[Sequence[float]], calculation_input: CalculationInput
 ) -> list[tuple[float, float]]:
-    polygon = Polygon(vertices)
-    if polygon.is_empty or not polygon.is_valid:
+    if len(vertices) < 3:
+        return []
+    polygon = MultiPoint(vertices).convex_hull
+    if polygon.is_empty or polygon.geom_type != "Polygon":
         return []
     ph_min, ph_max = calculation_input.ph_range
     potential_min, potential_max = calculation_input.potential_range

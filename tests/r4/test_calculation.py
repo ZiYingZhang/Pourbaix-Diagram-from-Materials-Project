@@ -1,5 +1,8 @@
 from dataclasses import dataclass
 
+import pytest
+from shapely.geometry import Polygon
+
 from pourbaix_r4.calculation import calculate_snapshot
 from pourbaix_r4.domain import parse_calculation_input
 
@@ -60,3 +63,28 @@ def test_calculate_snapshot_clips_domain_vertices_and_keeps_open_species_out_of_
     assert snapshot.boundaries
     assert all(0.0 <= boundary.ph <= 14.0 for boundary in snapshot.boundaries)
     assert all(-2.0 <= boundary.potential_v_she <= 4.0 for boundary in snapshot.boundaries)
+
+
+class UnorderedStubPlotter(StubPlotter):
+    def domain_vertices(self, entry):
+        assert entry.name == "Sb2Se3(s)"
+        return [(0.0, 0.0), (2.0, 2.0), (0.0, 2.0), (2.0, 0.0)]
+
+
+def test_calculate_snapshot_orders_convex_domain_vertices_without_self_intersection():
+    calculation_input = parse_calculation_input(
+        ("Sb", "Se"), {"Sb": "2", "Se": "3"}, (-2, 16), (-4, 4)
+    )
+
+    snapshot = calculate_snapshot(
+        calculation_input,
+        entries=["source-entry"],
+        diagram_factory=lambda entries, **kwargs: StubDiagram(entries, kwargs["comp_dict"]),
+        plotter_factory=UnorderedStubPlotter,
+    )
+
+    vertices = [(boundary.ph, boundary.potential_v_she) for boundary in snapshot.boundaries]
+    polygon = Polygon(vertices)
+    assert len(vertices) == 4
+    assert polygon.is_valid
+    assert polygon.area == pytest.approx(4.0)

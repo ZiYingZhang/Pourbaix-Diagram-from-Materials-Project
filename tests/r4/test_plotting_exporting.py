@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
+from shapely.geometry import Polygon
 
 from pourbaix_r4.exporting import ExportError, export_boundaries, export_figure
 from pourbaix_r4.models import AppearanceSettings, BoundaryRecord, CalculationInput, InterestRegion, ResultSnapshot
@@ -95,6 +96,75 @@ def test_render_snapshot_accepts_postprocessing_view_limits():
 
     assert figure.axes[0].get_xlim() == (-1.0, 10.0)
     assert figure.axes[0].get_ylim() == (-1.5, 2.5)
+
+
+class SelfCrossingFormalPlotter:
+    def get_pourbaix_plot(
+        self,
+        limits,
+        label_domains,
+        label_fontsize,
+        show_water_lines,
+        show_neutral_axes=True,
+        ax=None,
+    ):
+        ax.plot([0.0, 14.0], [1.5, -1.0], color="black", linestyle="-")
+        ax.plot([0.0, 14.0], [0.3, 1.8], color="black", linestyle="-")
+        if show_neutral_axes:
+            ax.plot([7.0, 7.0], [-4.0, 4.0], color="black", linestyle="-.")
+            ax.plot([-2.0, 16.0], [0.0, 0.0], color="black", linestyle="-.")
+        if label_domains:
+            ax.text(7.0, 0.5, "Fe(s)", fontsize=label_fontsize)
+        return ax
+
+
+def test_render_snapshot_replaces_self_crossing_plotter_chords_with_snapshot_boundary():
+    base = _snapshot()
+    snapshot = ResultSnapshot(
+        calculation_input=CalculationInput(
+            elements=("Fe",),
+            closed_element_ratios=(("Fe", 1.0),),
+            ph_range=(-2.0, 16.0),
+            potential_range=(-4.0, 4.0),
+        ),
+        stable_domain_labels=("Fe(s)",),
+        boundaries=(
+            BoundaryRecord("Fe(s)", -2.0, -1.0, 0),
+            BoundaryRecord("Fe(s)", 16.0, -1.0, 1),
+            BoundaryRecord("Fe(s)", 16.0, 2.0, 2),
+            BoundaryRecord("Fe(s)", -2.0, 2.0, 3),
+        ),
+        entries_count=base.entries_count,
+        plotter_payload=SelfCrossingFormalPlotter(),
+    )
+
+    figure = render_snapshot(snapshot, AppearanceSettings(), [])
+    axis = figure.axes[0]
+    black_solid_lines = [
+        line for line in axis.lines
+        if line.get_color() == "black" and line.get_linestyle() == "-"
+    ]
+    assert len(black_solid_lines) == 1
+    line = black_solid_lines[0]
+    boundary = Polygon(list(zip(line.get_xdata()[:-1], line.get_ydata()[:-1], strict=True)))
+    assert boundary.is_valid
+    assert not any(line.get_linestyle() == "-." for line in axis.lines)
+
+
+def test_water_stability_lines_span_the_complete_active_view():
+    figure = render_snapshot(
+        _snapshot(),
+        AppearanceSettings(),
+        [],
+        view_limits=((-2.0, 16.0), (-4.0, 4.0)),
+    )
+
+    water_lines = [
+        line for line in figure.axes[0].lines
+        if line.get_color() in {"#FF0000", "#0070C0"}
+    ]
+    assert len(water_lines) == 2
+    assert all(tuple(line.get_xdata()) == (-2.0, 16.0) for line in water_lines)
 
 
 def test_render_snapshot_rejects_unknown_interest_regions_without_substitution():

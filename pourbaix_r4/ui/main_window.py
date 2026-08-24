@@ -11,7 +11,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QPalette
 from PySide6.QtWidgets import (
     QCheckBox, QColorDialog, QComboBox, QDockWidget, QDoubleSpinBox, QFileDialog, QFormLayout,
-    QApplication, QFrame, QGroupBox, QHeaderView, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem, QMainWindow,
+    QApplication, QFrame, QHeaderView, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem, QMainWindow,
     QPushButton, QScrollArea, QSlider, QTableWidget, QTableWidgetItem, QTabWidget, QToolBar,
     QToolBox, QVBoxLayout, QWidget,
 )
@@ -103,10 +103,13 @@ class PourbaixStudioMainWindow(QMainWindow):
         scroll.setWidget(widget)
         return scroll
 
-    def _build_regions_group(self) -> QGroupBox:
-        group = QGroupBox("REGIONS AND FILLS")
+    def _build_regions_group(self) -> QFrame:
+        group = QFrame()
         group.setObjectName("regionsAndFillsGroup")
         layout = QVBoxLayout(group)
+        title = QLabel("REGIONS AND FILLS")
+        title.setObjectName("regionsAndFillsTitle")
+        layout.addWidget(title)
         add_row = QHBoxLayout()
         self.region_selector = QComboBox()
         self.region_selector.setObjectName("regionSelectorControl")
@@ -180,9 +183,9 @@ class PourbaixStudioMainWindow(QMainWindow):
 
     def _build_view_page(self) -> QWidget:
         page = QWidget(); form = QFormLayout(page); self._configure_form(form)
-        self.view_ph_min = self._range_spin("viewPhMinControl", 0.0); form.addRow("pH min", self.view_ph_min)
-        self.view_ph_max = self._range_spin("viewPhMaxControl", 14.0); form.addRow("pH max", self.view_ph_max)
-        self.view_potential_min = self._range_spin("viewPotentialMinControl", -2.0); form.addRow("Potential min", self.view_potential_min)
+        self.view_ph_min = self._range_spin("viewPhMinControl", -2.0); form.addRow("pH min", self.view_ph_min)
+        self.view_ph_max = self._range_spin("viewPhMaxControl", 16.0); form.addRow("pH max", self.view_ph_max)
+        self.view_potential_min = self._range_spin("viewPotentialMinControl", -4.0); form.addRow("Potential min", self.view_potential_min)
         self.view_potential_max = self._range_spin("viewPotentialMaxControl", 4.0); form.addRow("Potential max", self.view_potential_max)
         return page
 
@@ -263,6 +266,18 @@ class PourbaixStudioMainWindow(QMainWindow):
                 padding: 2px 6px;
                 background-color: #F1F3F6;
                 color: #1F2937;
+            }
+            #regionsAndFillsGroup {
+                background-color: #F1F3F6;
+                border: 1px solid #AEB8C3;
+                border-radius: 4px;
+            }
+            #regionsAndFillsTitle {
+                background-color: transparent;
+                border: none;
+                color: #1F2937;
+                font-weight: 600;
+                padding: 2px 0 6px 0;
             }
             QToolBox::tab {
                 background-color: #E1E6EC;

@@ -1,6 +1,6 @@
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPalette
-from PySide6.QtWidgets import QCheckBox, QComboBox, QDockWidget, QDoubleSpinBox, QGroupBox, QHeaderView, QPushButton, QScrollArea, QSlider, QTabWidget, QToolBar, QToolBox
+from PySide6.QtWidgets import QCheckBox, QComboBox, QDockWidget, QDoubleSpinBox, QFrame, QHeaderView, QLabel, QPushButton, QScrollArea, QSlider, QTabWidget, QToolBar, QToolBox
 
 from pourbaix_core import FetchResult
 from pourbaix_r4.credentials import ResolvedCredential
@@ -206,7 +206,7 @@ def test_sidebars_scroll_and_region_color_controls_share_one_section(qapplicatio
     try:
         query_scroll = window.findChild(QScrollArea, "queryScrollArea")
         post_scroll = window.findChild(QScrollArea, "postProcessingScrollArea")
-        regions_group = window.findChild(QGroupBox, "regionsAndFillsGroup")
+        regions_group = window.findChild(QFrame, "regionsAndFillsGroup")
         color_button = window.findChild(QPushButton, "regionColorButton")
         opacity_slider = window.findChild(QSlider, "regionOpacitySlider")
 
@@ -222,9 +222,11 @@ def test_sidebars_scroll_and_region_color_controls_share_one_section(qapplicatio
 def test_postprocessing_titles_and_boundary_table_use_clear_alignment(qapplication):
     window = PourbaixStudioMainWindow()
     try:
-        regions_group = window.findChild(QGroupBox, "regionsAndFillsGroup")
+        regions_group = window.findChild(QFrame, "regionsAndFillsGroup")
+        regions_title = window.findChild(QLabel, "regionsAndFillsTitle")
         toolbox = window.findChild(QToolBox, "postProcessingSections")
-        assert regions_group.title() == "REGIONS AND FILLS"
+        assert regions_title.text() == "REGIONS AND FILLS"
+        assert regions_group.isAncestorOf(regions_title)
         assert [toolbox.itemText(index) for index in range(toolbox.count())] == [
             "LABELS AND FONTS",
             "LINES AND AXES",

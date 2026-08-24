@@ -37,6 +37,15 @@ def test_formula_commit_builds_summary_concentrations_and_heatmap_placeholder(qa
         panel.close()
 
 
+def test_diagram_range_defaults_match_materials_project_full_view(qapplication):
+    panel = CompositionPanel()
+    try:
+        assert (panel.ph_min.text(), panel.ph_max.text()) == ("-2", "16")
+        assert (panel.potential_min.text(), panel.potential_max.text()) == ("-4", "4")
+    finally:
+        panel.close()
+
+
 def test_composition_sections_use_uppercase_titles_and_aligned_form_columns(qapplication):
     panel = CompositionPanel()
     try:
