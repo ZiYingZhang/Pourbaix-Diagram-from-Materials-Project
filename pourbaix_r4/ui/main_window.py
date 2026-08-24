@@ -6,11 +6,11 @@ from pathlib import Path
 from typing import Callable
 from dataclasses import replace
 
-from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg, NavigationToolbar2QT
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QCheckBox, QComboBox, QDockWidget, QDoubleSpinBox, QFileDialog, QFormLayout, QHBoxLayout,
-    QLabel, QLineEdit, QListWidget, QMainWindow, QPushButton, QTableWidget, QTableWidgetItem,
+    QLabel, QLineEdit, QListWidget, QListWidgetItem, QMainWindow, QPushButton, QTableWidget, QTableWidgetItem,
     QTabWidget, QToolBar, QVBoxLayout, QWidget,
 )
 
@@ -33,6 +33,7 @@ class PourbaixStudioMainWindow(QMainWindow):
         self.preferences = PreferenceStore()
         self.appearance = AppearanceSettings()
         self.interest_regions: list[InterestRegion] = []
+        self._canvas = None
         self._language: Language = self.preferences.language()
         self._entry_service = entry_service or CachedEntryService(MPResterEntryProvider())
         self._credential_resolver = credential_resolver or (
@@ -63,7 +64,8 @@ class PourbaixStudioMainWindow(QMainWindow):
         composition_dock = QDockWidget("System and conditions", self); composition_dock.setWidget(self.composition_panel)
         self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, composition_dock)
         interest_widget = QWidget(); interest_layout = QVBoxLayout(interest_widget)
-        self.interest_list = QListWidget(); interest_layout.addWidget(self.interest_list)
+        self.region_selector = QComboBox(); self.region_selector.setObjectName("regionSelectorControl"); interest_layout.addWidget(self.region_selector)
+        self.interest_list = QListWidget(); self.interest_list.itemChanged.connect(self._interest_visibility_changed); self.interest_list.currentRowChanged.connect(self._load_interest_style); interest_layout.addWidget(self.interest_list)
         controls = QHBoxLayout()
         add_region = QPushButton("Add selected"); add_region.setObjectName("addInterestRegionButton"); add_region.clicked.connect(self._add_selected_region); controls.addWidget(add_region)
         remove_region = QPushButton("Remove"); remove_region.setObjectName("removeInterestRegionButton"); remove_region.clicked.connect(lambda: self.remove_interest_region(self.interest_list.currentRow())); controls.addWidget(remove_region)
@@ -91,6 +93,13 @@ class PourbaixStudioMainWindow(QMainWindow):
         self.region_opacity = self._appearance_spin("regionFillOpacityControl", 0.4, lambda value: None, maximum=1.0, step=0.05); fill_form.addRow("Selected fill alpha", self.region_opacity)
         apply_fill = QPushButton("Apply selected region style"); apply_fill.clicked.connect(self.apply_selected_region_style); fill_form.addRow(apply_fill)
         appearance_layout.addLayout(fill_form)
+        view_form = QFormLayout()
+        self.view_ph_min = self._range_spin("viewPhMinControl", 0.0); view_form.addRow("View pH min", self.view_ph_min)
+        self.view_ph_max = self._range_spin("viewPhMaxControl", 14.0); view_form.addRow("View pH max", self.view_ph_max)
+        self.view_potential_min = self._range_spin("viewPotentialMinControl", -2.0); view_form.addRow("View potential min", self.view_potential_min)
+        self.view_potential_max = self._range_spin("viewPotentialMaxControl", 4.0); view_form.addRow("View potential max", self.view_potential_max)
+        self.replot_button = QPushButton("Re-plot from current result"); self.replot_button.setObjectName("replotButton"); self.replot_button.clicked.connect(self.replot_current_result); view_form.addRow(self.replot_button)
+        appearance_layout.addLayout(view_form)
         appearance_dock = QDockWidget("Appearance", self); appearance_dock.setWidget(appearance_widget)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, appearance_dock)
 
@@ -103,6 +112,9 @@ class PourbaixStudioMainWindow(QMainWindow):
     def _appearance_spin(self, name, value, callback, *, maximum=100.0, step=0.1):
         control = QDoubleSpinBox(); control.setObjectName(name); control.setRange(0.0, maximum); control.setSingleStep(step); control.setValue(value); control.valueChanged.connect(callback); return control
 
+    def _range_spin(self, name, value):
+        control = QDoubleSpinBox(); control.setObjectName(name); control.setRange(-100.0, 100.0); control.setDecimals(3); control.setValue(value); return control
+
     def set_language(self, language: Language) -> None:
         self._language = language
         self.preferences.set_language(language)
@@ -112,7 +124,10 @@ class PourbaixStudioMainWindow(QMainWindow):
         self.session.replace_success(snapshot)
         palette = ("#B0C4DE", "#C6E48B", "#F6C85F", "#E78AC3")
         self.interest_regions = [InterestRegion(label, color=palette[index % len(palette)], opacity=0.35) for index, label in enumerate(snapshot.stable_domain_labels[:4])]
-        self.interest_list.clear(); self.interest_list.addItems(region.label for region in self.interest_regions)
+        self.region_selector.clear(); self.region_selector.addItems(snapshot.stable_domain_labels)
+        self._populate_interest_list()
+        self.view_ph_min.setValue(snapshot.calculation_input.ph_range[0]); self.view_ph_max.setValue(snapshot.calculation_input.ph_range[1])
+        self.view_potential_min.setValue(snapshot.calculation_input.potential_range[0]); self.view_potential_max.setValue(snapshot.calculation_input.potential_range[1])
         self.available_regions.clear(); self.available_regions.addItems(snapshot.stable_domain_labels)
         self.boundary_table.setRowCount(len(snapshot.boundaries))
         for row, boundary in enumerate(snapshot.boundaries):
@@ -143,7 +158,7 @@ class PourbaixStudioMainWindow(QMainWindow):
         snapshot = self.session.exportable_snapshot
         if snapshot is None:
             raise ExportError("Generate a current diagram before exporting an image")
-        figure = render_snapshot(snapshot, self.appearance, self.interest_regions)
+        figure = self._canvas.figure if self._canvas is not None else render_snapshot(snapshot, self.appearance, self.interest_regions, view_limits=self._view_limits())
         return export_figure(figure, Path(path), image_format, dpi=dpi, transparent=transparent)
 
     def _choose_data_export(self) -> None:
@@ -169,12 +184,31 @@ class PourbaixStudioMainWindow(QMainWindow):
     def _render(self) -> None:
         snapshot = self.session.snapshot
         if snapshot is None: return
-        figure = render_snapshot(snapshot, self.appearance, self.interest_regions)
+        view_limits = self._view_limits()
+        if view_limits is None: return
+        figure = render_snapshot(snapshot, self.appearance, self.interest_regions, view_limits=view_limits)
         canvas = FigureCanvasQTAgg(figure)
+        toolbar = NavigationToolbar2QT(canvas, self); toolbar.setObjectName("plotNavigationToolbar")
         while self.diagram_layout.count():
             child = self.diagram_layout.takeAt(0).widget()
             if child is not None: child.deleteLater()
-        self.diagram_layout.addWidget(canvas)
+        self.diagram_layout.addWidget(toolbar); self.diagram_layout.addWidget(canvas)
+        self._canvas = canvas
+
+    def _view_limits(self):
+        ph_range = (self.view_ph_min.value(), self.view_ph_max.value())
+        potential_range = (self.view_potential_min.value(), self.view_potential_max.value())
+        if ph_range[0] >= ph_range[1] or potential_range[0] >= potential_range[1]:
+            self.statusBar().showMessage("View minimum must be smaller than maximum.")
+            return None
+        return ph_range, potential_range
+
+    def replot_current_result(self) -> None:
+        if self.session.snapshot is None:
+            self.statusBar().showMessage("Generate a diagram before re-plotting.")
+            return
+        self._render()
+        self.statusBar().showMessage("Re-plotted from the current result; no API request was made.")
 
     def set_show_ion_labels(self, visible: bool) -> None:
         self.appearance = replace(self.appearance, show_ion_labels=visible)
@@ -190,7 +224,33 @@ class PourbaixStudioMainWindow(QMainWindow):
         if not (0 <= index < len(self.interest_regions)):
             return
         self.interest_regions[index] = replace(self.interest_regions[index], color=self.region_color.text(), opacity=self.region_opacity.value())
+        self._populate_interest_list(current_row=index)
         self._render()
+
+    def _populate_interest_list(self, current_row=0) -> None:
+        self.interest_list.blockSignals(True)
+        self.interest_list.clear()
+        for region in self.interest_regions:
+            item = QListWidgetItem(region.label)
+            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+            item.setCheckState(Qt.CheckState.Checked if region.visible else Qt.CheckState.Unchecked)
+            self.interest_list.addItem(item)
+        self.interest_list.blockSignals(False)
+        if self.interest_regions:
+            self.interest_list.setCurrentRow(min(current_row, len(self.interest_regions) - 1))
+
+    def _load_interest_style(self, index: int) -> None:
+        if 0 <= index < len(self.interest_regions):
+            region = self.interest_regions[index]
+            self.region_color.setText(region.color)
+            self.region_opacity.setValue(region.opacity)
+
+    def _interest_visibility_changed(self, item) -> None:
+        index = self.interest_list.row(item)
+        if 0 <= index < len(self.interest_regions):
+            visible = item.checkState() == Qt.CheckState.Checked
+            self.interest_regions[index] = replace(self.interest_regions[index], visible=visible)
+            self._render()
 
     def apply_appearance(self, **values) -> None:
         allowed = set(self.appearance.__dataclass_fields__)
@@ -202,18 +262,18 @@ class PourbaixStudioMainWindow(QMainWindow):
         if snapshot is None or label not in snapshot.stable_domain_labels or any(region.label == label for region in self.interest_regions):
             return
         self.interest_regions.append(InterestRegion(label))
-        self.interest_list.addItem(label)
+        self._populate_interest_list(current_row=len(self.interest_regions) - 1)
         self._render()
 
     def _add_selected_region(self) -> None:
-        item = self.available_regions.currentItem()
-        if item is not None:
-            self.add_interest_region(item.text())
+        label = self.region_selector.currentText()
+        if label:
+            self.add_interest_region(label)
 
     def remove_interest_region(self, index: int) -> None:
         if 0 <= index < len(self.interest_regions):
             self.interest_regions.pop(index)
-            self.interest_list.takeItem(index)
+            self._populate_interest_list(current_row=max(0, index - 1))
             self._render()
 
     def interest_region_count(self) -> int:

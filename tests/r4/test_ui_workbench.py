@@ -26,7 +26,7 @@ def test_workbench_exposes_required_docks_tabs_and_dynamic_interest_regions(qapp
 
         window.show_snapshot(_snapshot())
         assert len(window.interest_regions) == 1
-        canvas = window.diagram_layout.itemAt(0).widget()
+        canvas = window.diagram_layout.itemAt(1).widget()
         assert len(canvas.figure.axes[0].patches) >= 1
         assert window.interest_region_count() == 1
         window.add_interest_region("Fe(s)")
@@ -154,6 +154,48 @@ def test_toolbar_defers_partial_bilingual_switch_and_exposes_figure_export(qappl
         assert "中文" not in action_texts
         assert "English" not in action_texts
         assert "Export figure" in action_texts
+    finally:
+        window.close()
+
+
+def test_replot_uses_current_snapshot_without_fetch_or_calculation(qapplication):
+    fetch_calls = []
+    calculate_calls = []
+
+    class Entries:
+        def fetch(self, elements, api_key):
+            fetch_calls.append((elements, api_key))
+
+    def calculate(*args):
+        calculate_calls.append(args)
+
+    window = PourbaixStudioMainWindow(entry_service=Entries(), calculate=calculate)
+    try:
+        snapshot = _snapshot()
+        window.show_snapshot(snapshot)
+        window.findChild(QDoubleSpinBox, "viewPhMinControl").setValue(-1.0)
+        window.findChild(QDoubleSpinBox, "viewPhMaxControl").setValue(10.0)
+        window.findChild(QDoubleSpinBox, "viewPotentialMinControl").setValue(-1.5)
+        window.findChild(QDoubleSpinBox, "viewPotentialMaxControl").setValue(2.5)
+        window.findChild(QPushButton, "replotButton").click()
+
+        canvas = window.diagram_layout.itemAt(1).widget()
+        assert canvas.figure.axes[0].get_xlim() == (-1.0, 10.0)
+        assert canvas.figure.axes[0].get_ylim() == (-1.5, 2.5)
+        assert fetch_calls == []
+        assert calculate_calls == []
+        assert window.session.exportable_snapshot is snapshot
+    finally:
+        window.close()
+
+
+def test_right_panel_exposes_region_selector_and_interactive_navigation(qapplication):
+    window = PourbaixStudioMainWindow()
+    try:
+        window.show_snapshot(_snapshot())
+        selector = window.findChild(QComboBox, "regionSelectorControl")
+        assert selector.itemText(0) == "Fe(s)"
+        assert window.findChild(QToolBar, "plotNavigationToolbar") is not None
     finally:
         window.close()
 

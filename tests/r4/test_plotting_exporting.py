@@ -80,6 +80,21 @@ def test_render_snapshot_applies_r2_appearance_settings_and_interest_region_fill
     assert axis.patches[0].get_alpha() == 0.3
     assert any(line.get_color() == "#ff0000" for line in axis.lines)
     assert any(line.get_color() == "#0070c0" for line in axis.lines)
+    water_lines = [line for line in axis.lines if line.get_color() in {"#ff0000", "#0070c0"}]
+    assert len(water_lines) == 2
+    assert all(line.get_linestyle() == "--" for line in water_lines)
+
+
+def test_render_snapshot_accepts_postprocessing_view_limits():
+    figure = render_snapshot(
+        _snapshot(),
+        AppearanceSettings(),
+        [],
+        view_limits=((-1.0, 10.0), (-1.5, 2.5)),
+    )
+
+    assert figure.axes[0].get_xlim() == (-1.0, 10.0)
+    assert figure.axes[0].get_ylim() == (-1.5, 2.5)
 
 
 def test_render_snapshot_rejects_unknown_interest_regions_without_substitution():

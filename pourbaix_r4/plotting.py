@@ -28,21 +28,27 @@ def render_snapshot(
     snapshot: ResultSnapshot,
     appearance: AppearanceSettings,
     regions: Sequence[InterestRegion],
+    *,
+    view_limits: tuple[tuple[float, float], tuple[float, float]] | None = None,
 ) -> Figure:
     """Render already-clipped snapshot geometry without fetching or recalculating."""
     figure = Figure()
     FigureCanvasAgg(figure)
     axis = figure.add_subplot(111)
-    ph_min, ph_max = snapshot.calculation_input.ph_range
-    potential_min, potential_max = snapshot.calculation_input.potential_range
+    limits = view_limits or (
+        snapshot.calculation_input.ph_range,
+        snapshot.calculation_input.potential_range,
+    )
+    (ph_min, ph_max), (potential_min, potential_max) = limits
     vertices_by_label = _domain_vertices(snapshot)
     known_labels = set(snapshot.stable_domain_labels)
     formal_plotter = snapshot.plotter_payload
     if formal_plotter is not None and hasattr(formal_plotter, "get_pourbaix_plot"):
         formal_plotter.get_pourbaix_plot(
-            limits=(snapshot.calculation_input.ph_range, snapshot.calculation_input.potential_range),
+            limits=limits,
             label_domains=appearance.show_ion_labels,
             label_fontsize=int(appearance.ion_label_font_size),
+            show_water_lines=False,
             ax=axis,
         )
     for region in regions:
@@ -72,8 +78,8 @@ def render_snapshot(
             axis.text(ph, potential, label, fontname=appearance.ion_label_font, fontsize=appearance.ion_label_font_size, bbox=bbox)
 
     ph_values = (ph_min, ph_max)
-    axis.plot(ph_values, tuple(-0.0591 * value for value in ph_values), color=appearance.hydrogen_line_color, linewidth=appearance.stability_line_width)
-    axis.plot(ph_values, tuple(1.229 - 0.0591 * value for value in ph_values), color=appearance.oxygen_line_color, linewidth=appearance.stability_line_width)
+    axis.plot(ph_values, tuple(-0.0591 * value for value in ph_values), color=appearance.hydrogen_line_color, linewidth=appearance.stability_line_width, linestyle="--")
+    axis.plot(ph_values, tuple(1.229 - 0.0591 * value for value in ph_values), color=appearance.oxygen_line_color, linewidth=appearance.stability_line_width, linestyle="--")
     axis.set_xlim(ph_min, ph_max)
     axis.set_ylim(potential_min, potential_max)
     axis.set_xlabel(appearance.x_axis_label, fontsize=appearance.x_axis_label_size, fontname=appearance.axis_tick_font)
