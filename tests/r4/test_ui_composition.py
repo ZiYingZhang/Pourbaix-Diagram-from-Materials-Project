@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from PySide6.QtCore import QUrl
 
 from pourbaix_r4.ui.api_dialog import ApiSettingsDialog
-from pourbaix_r4.ui.composition_panel import CompositionPanel
+from pourbaix_r4.ui.composition_panel import CompositionPanel, PeriodicTableDialog
 
 
 def test_formula_quick_fill_and_open_species_regenerate_ratio_rows(qapplication):
@@ -17,6 +17,32 @@ def test_formula_quick_fill_and_open_species_regenerate_ratio_rows(qapplication)
         assert panel.selected_elements() == ("Sb", "Se", "O", "H")
         assert panel.ratio_values() == {"Sb": "2.0", "Se": "3.0"}
         assert "open reservoir" in panel.open_species_notice.text().lower()
+    finally:
+        panel.close()
+
+
+def test_formula_commit_builds_summary_concentrations_and_heatmap_placeholder(qapplication):
+    panel = CompositionPanel()
+    try:
+        panel.formula_input.setText("Sb2Se3")
+        panel.formula_input.editingFinished.emit()
+        assert panel.element_chip_texts() == ("Sb", "Se")
+        assert panel.composition_summary.text() == "Sb : Se = 2 : 3"
+        assert panel.concentration_values() == {"Sb": "0.000001", "Se": "0.000001"}
+        assert panel.filter_solids.isChecked() is True
+        assert panel.advanced_options.isCheckable() is True
+        assert panel.heatmap_toggle.isEnabled() is False
+        assert panel.heatmap_entry.isEnabled() is False
+    finally:
+        panel.close()
+
+
+def test_ratio_draft_keeps_live_summary_responsive_until_validation(qapplication):
+    panel = CompositionPanel()
+    try:
+        panel.apply_formula("Sb2Se3")
+        panel.set_ratio_value("Sb", "draft")
+        assert panel.composition_summary.text() == "Sb : Se = ? : 3"
     finally:
         panel.close()
 
@@ -35,7 +61,34 @@ def test_all_periodic_table_symbols_are_available_and_valid_input_emits_request(
 
         assert len(received) == 1
         assert received[0].comp_dict == {"Fe": 1.0, "Ni": 1.0}
+        assert received[0].conc_dict == {"Fe": 1e-6, "Ni": 1e-6}
     finally:
+        panel.close()
+
+
+def test_searchable_periodic_table_selection_rebuilds_editor(qapplication):
+    dialog = PeriodicTableDialog(("Sb",))
+    panel = CompositionPanel()
+    try:
+        dialog.search_input.setText("iron")
+        assert dialog.matching_symbols() == ("Fe",)
+
+        dialog.set_selected_symbols(("Fe", "Ni", "O"))
+        assert dialog.selected_symbols() == ("Fe", "Ni", "O")
+
+        panel.apply_element_selection(dialog.selected_symbols())
+        assert panel.selected_elements() == ("Fe", "Ni", "O")
+        assert panel.ratio_values() == {"Fe": "1.0", "Ni": "1.0"}
+        assert panel.concentration_values() == {
+            "Fe": "0.000001",
+            "Ni": "0.000001",
+        }
+
+        panel.remove_element("Ni")
+        assert panel.selected_elements() == ("Fe", "O")
+        assert panel.ratio_values() == {"Fe": "1.0"}
+    finally:
+        dialog.close()
         panel.close()
 
 
