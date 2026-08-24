@@ -32,7 +32,7 @@ def render_snapshot(
     view_limits: tuple[tuple[float, float], tuple[float, float]] | None = None,
 ) -> Figure:
     """Render already-clipped snapshot geometry without fetching or recalculating."""
-    figure = Figure()
+    figure = Figure(layout="constrained")
     FigureCanvasAgg(figure)
     axis = figure.add_subplot(111)
     limits = view_limits or (

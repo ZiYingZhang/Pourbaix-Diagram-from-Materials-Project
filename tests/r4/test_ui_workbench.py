@@ -154,7 +154,36 @@ def test_toolbar_defers_partial_bilingual_switch_and_exposes_figure_export(qappl
         action_texts = [action.text() for action in window.findChildren(QToolBar)[0].actions()]
         assert "中文" not in action_texts
         assert "English" not in action_texts
-        assert action_texts == ["API Settings", "Export Data", "Export Figure"]
+        assert action_texts == ["API Settings", "Export Data", "Export Figure", "Focus Plot"]
+    finally:
+        window.close()
+
+
+def test_focus_plot_hides_and_restores_both_sidebars(qapplication):
+    window = PourbaixStudioMainWindow()
+    try:
+        window.show()
+        qapplication.processEvents()
+        assert window.composition_dock.isVisible()
+        assert window.post_dock.isVisible()
+
+        window.focus_plot_action.setChecked(True)
+        assert window.composition_dock.isHidden()
+        assert window.post_dock.isHidden()
+
+        window.focus_plot_action.setChecked(False)
+        assert window.composition_dock.isVisible()
+        assert window.post_dock.isVisible()
+    finally:
+        window.close()
+
+
+def test_compact_screen_layout_reduces_sidebar_minimum_widths(qapplication):
+    window = PourbaixStudioMainWindow()
+    try:
+        assert window.apply_screen_layout(1536) is True
+        assert window.composition_dock.minimumWidth() <= 225
+        assert window.post_dock.minimumWidth() <= 270
     finally:
         window.close()
 

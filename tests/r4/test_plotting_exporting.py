@@ -106,6 +106,21 @@ def test_render_snapshot_applies_independent_axis_title_fonts_and_sizes():
     assert axis.yaxis.label.get_fontsize() == 19.0
 
 
+def test_render_snapshot_keeps_large_y_axis_title_inside_a_compact_canvas():
+    figure = render_snapshot(
+        _snapshot(),
+        AppearanceSettings(y_axis_label="Applied potential (V vs. SHE)", y_axis_label_size=28.0),
+        [],
+    )
+    figure.set_size_inches(6.0, 4.0)
+    figure.canvas.draw()
+    renderer = figure.canvas.get_renderer()
+    title_bounds = figure.axes[0].yaxis.label.get_window_extent(renderer)
+
+    assert figure.get_layout_engine() is not None
+    assert title_bounds.x0 >= 0.0
+
+
 def test_render_snapshot_controls_tick_marks_and_tick_labels_independently():
     appearance = AppearanceSettings(
         show_x_ticks=False,

@@ -30,7 +30,11 @@ def test_formula_commit_builds_summary_concentrations_and_heatmap_placeholder(qa
         assert panel.composition_summary.text() == "Sb : Se = 2 : 3"
         assert panel.concentration_values() == {"Sb": "0.000001", "Se": "0.000001"}
         assert panel.filter_solids.isChecked() is True
-        assert panel.advanced_options.isCheckable() is True
+        assert panel.advanced_options_toggle.text() == "Enable advanced options"
+        assert panel.advanced_options_toggle.isChecked() is False
+        assert panel.advanced_options_toggle.minimumHeight() >= 32
+        assert panel.advanced_options_status.text() == "OPTIONAL · OFF"
+        assert panel.advanced_options_content.isEnabled() is False
         assert panel.heatmap_toggle.isEnabled() is False
         assert panel.heatmap_entry.isEnabled() is False
     finally:
@@ -51,9 +55,21 @@ def test_composition_sections_use_uppercase_titles_and_aligned_form_columns(qapp
     try:
         expected_alignment = Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
         assert panel.ratio_group.title() == "COMPOSITION CONTROL"
-        assert panel.advanced_options.title() == "ADVANCED OPTIONS"
+        assert panel.advanced_options.title() == "ADVANCED OPTIONS — OPTIONAL"
         assert panel.ratio_form.labelAlignment() == expected_alignment
         assert panel.concentration_form.labelAlignment() == expected_alignment
+    finally:
+        panel.close()
+
+
+def test_explicit_advanced_options_toggle_enables_optional_controls(qapplication):
+    panel = CompositionPanel()
+    try:
+        panel.advanced_options_toggle.click()
+        assert panel.advanced_options_toggle.isChecked() is True
+        assert panel.advanced_options_status.text() == "OPTIONAL · ON"
+        assert panel.advanced_options_content.isEnabled() is True
+        assert panel.filter_solids.isEnabled() is True
     finally:
         panel.close()
 
@@ -111,6 +127,42 @@ def test_searchable_periodic_table_selection_rebuilds_editor(qapplication):
     finally:
         dialog.close()
         panel.close()
+
+
+def test_periodic_table_uses_standard_positions_and_marks_open_reservoirs(qapplication):
+    dialog = PeriodicTableDialog(("Ti", "O"))
+    try:
+        assert dialog.width() <= 1040
+        positions = {}
+        for symbol in ("H", "He", "Fe", "La", "Ce"):
+            index = dialog.periodic_grid.indexOf(dialog.element_buttons[symbol])
+            row, column, _row_span, _column_span = dialog.periodic_grid.getItemPosition(index)
+            positions[symbol] = (row, column)
+
+        assert positions == {
+            "H": (0, 0), "He": (0, 17), "Fe": (3, 7), "La": (7, 2), "Ce": (7, 3),
+        }
+        assert dialog.element_buttons["H"].property("openReservoir") is True
+        assert dialog.element_buttons["O"].property("openReservoir") is True
+        assert dialog.selection_count.text() == "Closed elements: 1/4 · Open reservoirs: O"
+        assert dialog.selected_chip_texts() == ("Ti", "O")
+    finally:
+        dialog.close()
+
+
+def test_periodic_table_search_highlights_matches_and_clear_resets_draft(qapplication):
+    dialog = PeriodicTableDialog(("Fe", "O"))
+    try:
+        dialog.search_input.setText("iron")
+        assert dialog.element_buttons["Fe"].property("searchMatch") is True
+        assert dialog.element_buttons["Ni"].property("searchDimmed") is True
+
+        dialog.clear_selection_button.click()
+        assert dialog.selected_symbols() == ()
+        assert dialog.selected_chip_texts() == ()
+        assert dialog.selection_count.text() == "Closed elements: 0/4 · Open reservoirs: none"
+    finally:
+        dialog.close()
 
 
 def test_element_picker_rejects_fifth_closed_element_without_losing_last_valid_state(qapplication):

@@ -68,6 +68,8 @@ class PourbaixStudioMainWindow(QMainWindow):
         self.appearance = AppearanceSettings()
         self.interest_regions: list[InterestRegion] = []
         self._canvas = None
+        self._screen_layout_applied = False
+        self._dock_visibility_before_focus = (True, True)
         self._language: Language = self.preferences.language()
         self._entry_service = entry_service or CachedEntryService(MPResterEntryProvider())
         self._credential_resolver = credential_resolver or (
@@ -100,10 +102,10 @@ class PourbaixStudioMainWindow(QMainWindow):
         self.composition_panel.calculation_requested.connect(self._generate)
         self.composition_panel.validation_failed.connect(self.statusBar().showMessage)
         query_scroll = self._scroll_area("queryScrollArea", self.composition_panel)
-        composition_dock = QDockWidget("System and conditions", self)
-        composition_dock.setMinimumWidth(255)
-        composition_dock.setWidget(query_scroll)
-        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, composition_dock)
+        self.composition_dock = QDockWidget("System and conditions", self)
+        self.composition_dock.setMinimumWidth(255)
+        self.composition_dock.setWidget(query_scroll)
+        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.composition_dock)
 
         post_outer = QWidget()
         post_outer_layout = QVBoxLayout(post_outer)
@@ -120,10 +122,10 @@ class PourbaixStudioMainWindow(QMainWindow):
         self.replot_button.setObjectName("replotButton")
         self.replot_button.clicked.connect(self.replot_current_result)
         post_outer_layout.addWidget(self.replot_button)
-        post_dock = QDockWidget("Post-processing", self)
-        post_dock.setMinimumWidth(310)
-        post_dock.setWidget(post_outer)
-        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, post_dock)
+        self.post_dock = QDockWidget("Post-processing", self)
+        self.post_dock.setMinimumWidth(310)
+        self.post_dock.setWidget(post_outer)
+        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.post_dock)
 
     def _scroll_area(self, name: str, widget: QWidget) -> QScrollArea:
         scroll = QScrollArea()
@@ -355,6 +357,26 @@ class PourbaixStudioMainWindow(QMainWindow):
                 font-weight: 600;
                 padding: 2px 0 6px 0;
             }
+            #advancedOptionsToggle {
+                background-color: #D9EEF8;
+                color: #17475C;
+                border: 2px solid #2D83A7;
+                border-radius: 4px;
+                padding: 6px 8px;
+                font-weight: 700;
+            }
+            #advancedOptionsToggle::indicator {
+                width: 20px;
+                height: 20px;
+            }
+            #advancedOptionsStatus {
+                background-color: #E8EDF2;
+                color: #5A6673;
+                border: 1px solid #AEB8C3;
+                border-radius: 4px;
+                padding: 5px 7px;
+                font-weight: 700;
+            }
             QToolButton[sectionHeader="true"] {
                 background-color: #E1E6EC;
                 color: #1F2937;
@@ -419,6 +441,44 @@ class PourbaixStudioMainWindow(QMainWindow):
         toolbar.addAction("API Settings", self.show_api_settings)
         toolbar.addAction("Export Data", self._choose_data_export)
         toolbar.addAction("Export Figure", self._choose_figure_export)
+        self.focus_plot_action = toolbar.addAction("Focus Plot")
+        self.focus_plot_action.setCheckable(True)
+        self.focus_plot_action.setShortcut("F11")
+        self.focus_plot_action.toggled.connect(self.set_plot_focus)
+
+    def set_plot_focus(self, focused: bool) -> None:
+        if focused:
+            self._dock_visibility_before_focus = (
+                self.composition_dock.isVisible(), self.post_dock.isVisible(),
+            )
+            self.composition_dock.hide()
+            self.post_dock.hide()
+            self.statusBar().showMessage("Plot focus enabled. Press F11 to restore the sidebars.")
+            return
+        left_visible, right_visible = self._dock_visibility_before_focus
+        self.composition_dock.setVisible(left_visible)
+        self.post_dock.setVisible(right_visible)
+        self.statusBar().showMessage("Sidebars restored.")
+
+    def apply_screen_layout(self, available_width: int) -> bool:
+        compact = available_width < 1600
+        self.composition_dock.setMinimumWidth(220 if compact else 255)
+        self.post_dock.setMinimumWidth(265 if compact else 310)
+        if compact:
+            self.resizeDocks(
+                [self.composition_dock, self.post_dock], [225, 270],
+                Qt.Orientation.Horizontal,
+            )
+        return compact
+
+    def showEvent(self, event) -> None:
+        super().showEvent(event)
+        if self._screen_layout_applied:
+            return
+        screen = self.screen()
+        if screen is not None:
+            self.apply_screen_layout(screen.availableGeometry().width())
+        self._screen_layout_applied = True
 
     def _appearance_spin(self, name, value, callback, *, maximum=100.0, step=0.1):
         control = QDoubleSpinBox(); control.setObjectName(name); control.setRange(0.0, maximum); control.setSingleStep(step); control.setValue(value); control.valueChanged.connect(callback); return control

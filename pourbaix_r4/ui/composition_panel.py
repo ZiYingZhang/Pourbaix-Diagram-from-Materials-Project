@@ -24,6 +24,19 @@ from pymatgen.core import Element
 from pourbaix_r4.domain import MAX_CLOSED_ELEMENTS, InputValidationError, parse_calculation_input, parse_formula, validate_selected_elements
 
 
+_PERIODIC_TABLE_ROWS = (
+    ("H", None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, "He"),
+    ("Li", "Be", None, None, None, None, None, None, None, None, None, None, "B", "C", "N", "O", "F", "Ne"),
+    ("Na", "Mg", None, None, None, None, None, None, None, None, None, None, "Al", "Si", "P", "S", "Cl", "Ar"),
+    ("K", "Ca", "Sc", "Ti", "V", "Cr", "Mn", "Fe", "Co", "Ni", "Cu", "Zn", "Ga", "Ge", "As", "Se", "Br", "Kr"),
+    ("Rb", "Sr", "Y", "Zr", "Nb", "Mo", "Tc", "Ru", "Rh", "Pd", "Ag", "Cd", "In", "Sn", "Sb", "Te", "I", "Xe"),
+    ("Cs", "Ba", None, "Hf", "Ta", "W", "Re", "Os", "Ir", "Pt", "Au", "Hg", "Tl", "Pb", "Bi", "Po", "At", "Rn"),
+    ("Fr", "Ra", None, "Rf", "Db", "Sg", "Bh", "Hs", "Mt", "Ds", "Rg", "Cn", "Nh", "Fl", "Mc", "Lv", "Ts", "Og"),
+)
+_LANTHANIDES = ("La", "Ce", "Pr", "Nd", "Pm", "Sm", "Eu", "Gd", "Tb", "Dy", "Ho", "Er", "Tm", "Yb", "Lu")
+_ACTINIDES = ("Ac", "Th", "Pa", "U", "Np", "Pu", "Am", "Cm", "Bk", "Cf", "Es", "Fm", "Md", "No", "Lr")
+
+
 class PeriodicTableDialog(QDialog):
     """Searchable multi-select element picker."""
 
@@ -32,7 +45,7 @@ class PeriodicTableDialog(QDialog):
     def __init__(self, selected=(), parent=None):
         super().__init__(parent)
         self.setWindowTitle("Choose elements")
-        self.resize(760, 520)
+        self.resize(1040, 620)
         self._setting_selection = False
         self._selection_order: list[str] = []
         self.element_buttons: dict[str, QToolButton] = {}
@@ -42,34 +55,72 @@ class PeriodicTableDialog(QDialog):
         self.search_input.setPlaceholderText("Search by symbol or name, e.g. Fe / Iron")
         self.search_input.textChanged.connect(self._filter_elements)
         layout.addWidget(self.search_input)
-        self.selection_limit_notice = QLabel("Up to 4 non-H/O elements")
+        self.selection_limit_notice = QLabel("Select up to 4 closed elements. H and O are open reservoirs.")
         layout.addWidget(self.selection_limit_notice)
+        self.selection_count = QLabel()
+        self.selection_count.setObjectName("periodicSelectionCount")
+        layout.addWidget(self.selection_count)
+        self.selection_chips = QWidget()
+        self.selection_chip_layout = QHBoxLayout(self.selection_chips)
+        self.selection_chip_layout.setContentsMargins(0, 0, 0, 0)
+        self.selection_chip_layout.addStretch(1)
+        layout.addWidget(self.selection_chips)
 
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         table = QWidget()
-        grid = QGridLayout(table)
-        grid.setSpacing(5)
-        for index, element in enumerate(Element):
+        self.periodic_grid = QGridLayout(table)
+        self.periodic_grid.setSpacing(4)
+        positions: dict[str, tuple[int, int]] = {}
+        for row, symbols in enumerate(_PERIODIC_TABLE_ROWS):
+            for column, symbol in enumerate(symbols):
+                if symbol is not None:
+                    positions[symbol] = (row, column)
+        for offset, symbol in enumerate(_LANTHANIDES):
+            positions[symbol] = (7, offset + 2)
+        for offset, symbol in enumerate(_ACTINIDES):
+            positions[symbol] = (8, offset + 2)
+        self.periodic_grid.addWidget(QLabel("57–71"), 5, 2)
+        self.periodic_grid.addWidget(QLabel("89–103"), 6, 2)
+        self.periodic_grid.addWidget(QLabel("Lanthanides"), 7, 0, 1, 2)
+        self.periodic_grid.addWidget(QLabel("Actinides"), 8, 0, 1, 2)
+        for element in Element:
             button = QToolButton()
             button.setText(element.symbol)
-            button.setToolTip(f"{element.long_name} · Z={element.Z}")
+            open_reservoir = element.symbol in {"H", "O"}
+            reservoir_note = " · OPEN RESERVOIR" if open_reservoir else ""
+            button.setToolTip(f"{element.long_name} · Z={element.Z}{reservoir_note}")
+            button.setProperty("openReservoir", open_reservoir)
             button.setCheckable(True)
-            button.setMinimumSize(54, 38)
+            button.setMinimumSize(45, 36)
             button.toggled.connect(
                 lambda checked, symbol=element.symbol: self._selection_toggled(symbol, checked)
             )
             self.element_buttons[element.symbol] = button
-            grid.addWidget(button, index // 10, index % 10)
+            row, column = positions[element.symbol]
+            self.periodic_grid.addWidget(button, row, column)
         scroll.setWidget(table)
         layout.addWidget(scroll)
 
+        self.clear_selection_button = QPushButton("Clear")
+        self.clear_selection_button.clicked.connect(lambda: self.set_selected_symbols(()))
+        layout.addWidget(self.clear_selection_button)
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         )
+        buttons.button(QDialogButtonBox.StandardButton.Ok).setText("Apply selection")
         buttons.accepted.connect(self._accept_selection)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
+        self.setStyleSheet(
+            """
+            QToolButton[openReservoir="true"] { background-color: #D9EEF8; border: 2px solid #2D83A7; }
+            QToolButton:checked { background-color: #8FD3E8; border: 2px solid #156B8A; font-weight: 700; }
+            QToolButton[searchMatch="true"] { background-color: #FFF2B3; border: 2px solid #D79A00; }
+            QToolButton[searchDimmed="true"] { color: #8A949F; background-color: #E5E8EC; }
+            #periodicSelectionCount { font-weight: 700; color: #1F4F66; }
+            """
+        )
         self.set_selected_symbols(selected)
 
     def matching_symbols(self) -> tuple[str, ...]:
@@ -85,6 +136,13 @@ class PeriodicTableDialog(QDialog):
     def selected_symbols(self) -> tuple[str, ...]:
         return tuple(self._selection_order)
 
+    def selected_chip_texts(self) -> tuple[str, ...]:
+        return tuple(
+            self.selection_chip_layout.itemAt(index).widget().text()
+            for index in range(self.selection_chip_layout.count())
+            if self.selection_chip_layout.itemAt(index).widget() is not None
+        )
+
     def set_selected_symbols(self, symbols) -> None:
         normalized = tuple(dict.fromkeys(Element(str(symbol)).symbol for symbol in symbols))
         self._setting_selection = True
@@ -94,11 +152,17 @@ class PeriodicTableDialog(QDialog):
             self._selection_order = list(normalized)
         finally:
             self._setting_selection = False
+        self._refresh_selection_display()
 
     def _filter_elements(self) -> None:
         matches = set(self.matching_symbols())
+        has_query = bool(self.search_input.text().strip())
         for symbol, button in self.element_buttons.items():
-            button.setVisible(symbol in matches)
+            button.setProperty("searchMatch", has_query and symbol in matches)
+            button.setProperty("searchDimmed", has_query and symbol not in matches)
+            button.setEnabled(not has_query or symbol in matches)
+            button.style().unpolish(button)
+            button.style().polish(button)
 
     def _selection_toggled(self, symbol: str, checked: bool) -> None:
         if self._setting_selection:
@@ -115,6 +179,25 @@ class PeriodicTableDialog(QDialog):
             self._selection_order.append(symbol)
         elif not checked and symbol in self._selection_order:
             self._selection_order.remove(symbol)
+        self.selection_limit_notice.setText("Select up to 4 closed elements. H and O are open reservoirs.")
+        self._refresh_selection_display()
+
+    def _refresh_selection_display(self) -> None:
+        while self.selection_chip_layout.count() > 1:
+            item = self.selection_chip_layout.takeAt(0)
+            widget = item.widget()
+            if widget is not None:
+                widget.deleteLater()
+        for symbol in self._selection_order:
+            chip = QToolButton()
+            chip.setText(symbol)
+            chip.setToolTip(f"Remove {symbol}")
+            chip.clicked.connect(lambda _checked=False, item=symbol: self.element_buttons[item].setChecked(False))
+            self.selection_chip_layout.insertWidget(self.selection_chip_layout.count() - 1, chip)
+        closed_count = sum(symbol not in {"H", "O"} for symbol in self._selection_order)
+        reservoirs = [symbol for symbol in self._selection_order if symbol in {"H", "O"}]
+        reservoir_text = ", ".join(reservoirs) if reservoirs else "none"
+        self.selection_count.setText(f"Closed elements: {closed_count}/4 · Open reservoirs: {reservoir_text}")
 
     def _accept_selection(self) -> None:
         self.elements_selected.emit(self.selected_symbols())
@@ -164,10 +247,24 @@ class CompositionPanel(QWidget):
         self._configure_form(self.ratio_form)
         layout.addWidget(self.ratio_group)
 
-        self.advanced_options = QGroupBox("ADVANCED OPTIONS")
-        self.advanced_options.setCheckable(True)
-        self.advanced_options.setChecked(False)
-        advanced = QVBoxLayout(self.advanced_options)
+        self.advanced_options = QGroupBox("ADVANCED OPTIONS — OPTIONAL")
+        advanced_box = QVBoxLayout(self.advanced_options)
+        toggle_row = QHBoxLayout()
+        self.advanced_options_toggle = QCheckBox("Enable advanced options")
+        self.advanced_options_toggle.setObjectName("advancedOptionsToggle")
+        self.advanced_options_toggle.setMinimumHeight(34)
+        self.advanced_options_status = QLabel("OPTIONAL · OFF")
+        self.advanced_options_status.setObjectName("advancedOptionsStatus")
+        toggle_row.addWidget(self.advanced_options_toggle, 1)
+        toggle_row.addWidget(self.advanced_options_status)
+        advanced_box.addLayout(toggle_row)
+        help_text = QLabel("Enable to edit solid filtering, ion concentrations, diagram range, and future heatmap options.")
+        help_text.setWordWrap(True)
+        advanced_box.addWidget(help_text)
+        self.advanced_options_content = QWidget()
+        self.advanced_options_content.setEnabled(False)
+        advanced = QVBoxLayout(self.advanced_options_content)
+        advanced.setContentsMargins(0, 0, 0, 0)
         self.filter_solids = QCheckBox("Filter solids")
         self.filter_solids.setChecked(True)
         self.filter_solids.toggled.connect(self.input_changed)
@@ -200,6 +297,8 @@ class CompositionPanel(QWidget):
         self.heatmap_entry.setEnabled(False)
         advanced.addWidget(self.heatmap_toggle)
         advanced.addWidget(self.heatmap_entry)
+        advanced_box.addWidget(self.advanced_options_content)
+        self.advanced_options_toggle.toggled.connect(self._set_advanced_options_enabled)
         layout.addWidget(self.advanced_options)
 
         generate = QPushButton("Generate diagram")
@@ -233,6 +332,10 @@ class CompositionPanel(QWidget):
     def _clear(self, form):
         while form.rowCount():
             form.removeRow(0)
+
+    def _set_advanced_options_enabled(self, enabled: bool) -> None:
+        self.advanced_options_content.setEnabled(enabled)
+        self.advanced_options_status.setText("OPTIONAL · ON" if enabled else "OPTIONAL · OFF")
 
     def _rebuild(self, ratios, concentrations):
         self._clear(self.ratio_form)
