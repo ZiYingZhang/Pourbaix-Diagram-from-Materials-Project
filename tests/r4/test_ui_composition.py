@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from PySide6.QtCore import QUrl
+from PySide6.QtCore import Qt, QUrl
 
 from pourbaix_r4.ui.api_dialog import ApiSettingsDialog
 from pourbaix_r4.ui.composition_panel import CompositionPanel, PeriodicTableDialog
@@ -33,6 +33,18 @@ def test_formula_commit_builds_summary_concentrations_and_heatmap_placeholder(qa
         assert panel.advanced_options.isCheckable() is True
         assert panel.heatmap_toggle.isEnabled() is False
         assert panel.heatmap_entry.isEnabled() is False
+    finally:
+        panel.close()
+
+
+def test_composition_sections_use_uppercase_titles_and_aligned_form_columns(qapplication):
+    panel = CompositionPanel()
+    try:
+        expected_alignment = Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+        assert panel.ratio_group.title() == "COMPOSITION CONTROL"
+        assert panel.advanced_options.title() == "ADVANCED OPTIONS"
+        assert panel.ratio_form.labelAlignment() == expected_alignment
+        assert panel.concentration_form.labelAlignment() == expected_alignment
     finally:
         panel.close()
 

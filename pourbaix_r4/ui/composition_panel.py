@@ -1,7 +1,7 @@
 """Composition-first editor with explicit advanced scientific options."""
 from __future__ import annotations
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -134,7 +134,7 @@ class CompositionPanel(QWidget):
         self._chip_labels = []
 
         layout = QVBoxLayout(self)
-        layout.addWidget(QLabel("System composition"))
+        layout.addWidget(QLabel("SYSTEM COMPOSITION"))
 
         formula_row = QHBoxLayout()
         self.formula_input = QLineEdit()
@@ -159,11 +159,12 @@ class CompositionPanel(QWidget):
         self.open_species_notice.setWordWrap(True)
         layout.addWidget(self.open_species_notice)
 
-        self.ratio_group = QGroupBox("Composition control")
+        self.ratio_group = QGroupBox("COMPOSITION CONTROL")
         self.ratio_form = QFormLayout(self.ratio_group)
+        self._configure_form(self.ratio_form)
         layout.addWidget(self.ratio_group)
 
-        self.advanced_options = QGroupBox("Advanced options")
+        self.advanced_options = QGroupBox("ADVANCED OPTIONS")
         self.advanced_options.setCheckable(True)
         self.advanced_options.setChecked(False)
         advanced = QVBoxLayout(self.advanced_options)
@@ -172,12 +173,14 @@ class CompositionPanel(QWidget):
         self.filter_solids.toggled.connect(self.input_changed)
         advanced.addWidget(self.filter_solids)
 
-        concentration_group = QGroupBox("Ion concentrations (M)")
+        concentration_group = QGroupBox("ION CONCENTRATIONS (M)")
         self.concentration_form = QFormLayout(concentration_group)
+        self._configure_form(self.concentration_form)
         advanced.addWidget(concentration_group)
 
-        range_group = QGroupBox("Diagram range")
+        range_group = QGroupBox("DIAGRAM RANGE")
         ranges = QFormLayout(range_group)
+        self._configure_form(ranges)
         self.ph_min, self.ph_max = QLineEdit("0"), QLineEdit("14")
         self.potential_min, self.potential_max = QLineEdit("-2"), QLineEdit("4")
         for label, field in (
@@ -202,6 +205,13 @@ class CompositionPanel(QWidget):
         generate = QPushButton("Generate diagram")
         generate.clicked.connect(self.request_calculation)
         layout.addWidget(generate)
+
+    @staticmethod
+    def _configure_form(form: QFormLayout) -> None:
+        form.setLabelAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        form.setFormAlignment(Qt.AlignmentFlag.AlignTop)
+        form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
+        form.setHorizontalSpacing(10)
 
     def available_element_symbols(self):
         return tuple(element.symbol for element in Element)

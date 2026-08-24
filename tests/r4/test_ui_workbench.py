@@ -1,6 +1,6 @@
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPalette
-from PySide6.QtWidgets import QCheckBox, QComboBox, QDockWidget, QDoubleSpinBox, QGroupBox, QPushButton, QScrollArea, QSlider, QTabWidget, QToolBar
+from PySide6.QtWidgets import QCheckBox, QComboBox, QDockWidget, QDoubleSpinBox, QGroupBox, QHeaderView, QPushButton, QScrollArea, QSlider, QTabWidget, QToolBar, QToolBox
 
 from pourbaix_core import FetchResult
 from pourbaix_r4.credentials import ResolvedCredential
@@ -154,7 +154,7 @@ def test_toolbar_defers_partial_bilingual_switch_and_exposes_figure_export(qappl
         action_texts = [action.text() for action in window.findChildren(QToolBar)[0].actions()]
         assert "中文" not in action_texts
         assert "English" not in action_texts
-        assert "Export figure" in action_texts
+        assert action_texts == ["API Settings", "Export Data", "Export Figure"]
     finally:
         window.close()
 
@@ -215,6 +215,34 @@ def test_sidebars_scroll_and_region_color_controls_share_one_section(qapplicatio
         assert regions_group.isAncestorOf(color_button)
         assert regions_group.isAncestorOf(opacity_slider)
         assert window.palette().color(QPalette.ColorRole.Window).lightness() > 128
+    finally:
+        window.close()
+
+
+def test_postprocessing_titles_and_boundary_table_use_clear_alignment(qapplication):
+    window = PourbaixStudioMainWindow()
+    try:
+        regions_group = window.findChild(QGroupBox, "regionsAndFillsGroup")
+        toolbox = window.findChild(QToolBox, "postProcessingSections")
+        assert regions_group.title() == "REGIONS AND FILLS"
+        assert [toolbox.itemText(index) for index in range(toolbox.count())] == [
+            "LABELS AND FONTS",
+            "LINES AND AXES",
+            "VIEW RANGE",
+            "IMAGE EXPORT",
+        ]
+        assert window.boundary_table.horizontalHeaderItem(0).text() == "DOMAIN LABEL"
+        assert all(
+            window.boundary_table.horizontalHeader().sectionResizeMode(column)
+            == QHeaderView.ResizeMode.Stretch
+            for column in range(4)
+        )
+
+        window.show_snapshot(_snapshot())
+        assert window.boundary_table.item(0, 0).textAlignment() & Qt.AlignmentFlag.AlignLeft
+        assert window.boundary_table.item(0, 1).textAlignment() & Qt.AlignmentFlag.AlignRight
+        assert window.boundary_table.item(0, 2).textAlignment() & Qt.AlignmentFlag.AlignRight
+        assert window.boundary_table.item(0, 3).textAlignment() & Qt.AlignmentFlag.AlignRight
     finally:
         window.close()
 

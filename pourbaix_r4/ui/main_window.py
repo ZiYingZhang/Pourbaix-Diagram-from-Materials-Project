@@ -11,7 +11,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QPalette
 from PySide6.QtWidgets import (
     QCheckBox, QColorDialog, QComboBox, QDockWidget, QDoubleSpinBox, QFileDialog, QFormLayout,
-    QApplication, QFrame, QGroupBox, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem, QMainWindow,
+    QApplication, QFrame, QGroupBox, QHeaderView, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem, QMainWindow,
     QPushButton, QScrollArea, QSlider, QTableWidget, QTableWidgetItem, QTabWidget, QToolBar,
     QToolBox, QVBoxLayout, QWidget,
 )
@@ -56,7 +56,9 @@ class PourbaixStudioMainWindow(QMainWindow):
         self.diagram_layout.addWidget(QLabel("Generate a diagram to begin."))
         self.workspace_tabs.addTab(self.diagram_host, "Diagram")
         self.available_regions = QListWidget(); self.workspace_tabs.addTab(self.available_regions, "Available regions")
-        self.boundary_table = QTableWidget(0, 4); self.boundary_table.setHorizontalHeaderLabels(["domain_label", "vertex_index", "pH", "potential_V_SHE"])
+        self.boundary_table = QTableWidget(0, 4)
+        self.boundary_table.setHorizontalHeaderLabels(["DOMAIN LABEL", "VERTEX", "pH", "POTENTIAL (V vs. SHE)"])
+        self.boundary_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.workspace_tabs.addTab(self.boundary_table, "Boundary data")
         self.setCentralWidget(self.workspace_tabs)
 
@@ -102,7 +104,7 @@ class PourbaixStudioMainWindow(QMainWindow):
         return scroll
 
     def _build_regions_group(self) -> QGroupBox:
-        group = QGroupBox("Regions & fills")
+        group = QGroupBox("REGIONS AND FILLS")
         group.setObjectName("regionsAndFillsGroup")
         layout = QVBoxLayout(group)
         add_row = QHBoxLayout()
@@ -151,14 +153,14 @@ class PourbaixStudioMainWindow(QMainWindow):
     def _build_appearance_toolbox(self) -> QToolBox:
         toolbox = QToolBox()
         toolbox.setObjectName("postProcessingSections")
-        toolbox.addItem(self._build_labels_page(), "Labels & fonts")
-        toolbox.addItem(self._build_lines_page(), "Lines & axes")
-        toolbox.addItem(self._build_view_page(), "View range")
-        toolbox.addItem(self._build_export_page(), "Image export")
+        toolbox.addItem(self._build_labels_page(), "LABELS AND FONTS")
+        toolbox.addItem(self._build_lines_page(), "LINES AND AXES")
+        toolbox.addItem(self._build_view_page(), "VIEW RANGE")
+        toolbox.addItem(self._build_export_page(), "IMAGE EXPORT")
         return toolbox
 
     def _build_labels_page(self) -> QWidget:
-        page = QWidget(); form = QFormLayout(page)
+        page = QWidget(); form = QFormLayout(page); self._configure_form(form)
         labels = QCheckBox("Show ion labels"); labels.setObjectName("showIonLabelsControl"); labels.setChecked(self.appearance.show_ion_labels); labels.toggled.connect(self.set_show_ion_labels); form.addRow(labels)
         self.ion_label_font = QComboBox(); self.ion_label_font.setObjectName("ionLabelFontControl"); self.ion_label_font.addItems(["Arial", "DejaVu Sans", "Times New Roman"]); self.ion_label_font.setCurrentText(self.appearance.ion_label_font); self.ion_label_font.currentTextChanged.connect(lambda value: self.apply_appearance(ion_label_font=value)); form.addRow("Ion label font", self.ion_label_font)
         self.axis_tick_font = QComboBox(); self.axis_tick_font.setObjectName("axisTickFontControl"); self.axis_tick_font.addItems(["Arial", "DejaVu Sans", "Times New Roman"]); self.axis_tick_font.setCurrentText(self.appearance.axis_tick_font); self.axis_tick_font.currentTextChanged.connect(lambda value: self.apply_appearance(axis_tick_font=value)); form.addRow("Axis/tick font", self.axis_tick_font)
@@ -167,7 +169,7 @@ class PourbaixStudioMainWindow(QMainWindow):
         return page
 
     def _build_lines_page(self) -> QWidget:
-        page = QWidget(); form = QFormLayout(page)
+        page = QWidget(); form = QFormLayout(page); self._configure_form(form)
         spine = self._appearance_spin("spineWidthControl", self.appearance.spine_width, lambda value: self.set_line_style(spine_width=value)); form.addRow("Spine width", spine)
         solid = self._appearance_spin("solidLineWidthControl", self.appearance.solid_line_width, lambda value: self.set_line_style(solid_line_width=value)); form.addRow("Solid line width", solid)
         stability = self._appearance_spin("stabilityLineWidthControl", self.appearance.stability_line_width, lambda value: self.set_line_style(stability_line_width=value)); form.addRow("Stability line width", stability)
@@ -177,7 +179,7 @@ class PourbaixStudioMainWindow(QMainWindow):
         return page
 
     def _build_view_page(self) -> QWidget:
-        page = QWidget(); form = QFormLayout(page)
+        page = QWidget(); form = QFormLayout(page); self._configure_form(form)
         self.view_ph_min = self._range_spin("viewPhMinControl", 0.0); form.addRow("pH min", self.view_ph_min)
         self.view_ph_max = self._range_spin("viewPhMaxControl", 14.0); form.addRow("pH max", self.view_ph_max)
         self.view_potential_min = self._range_spin("viewPotentialMinControl", -2.0); form.addRow("Potential min", self.view_potential_min)
@@ -185,7 +187,7 @@ class PourbaixStudioMainWindow(QMainWindow):
         return page
 
     def _build_export_page(self) -> QWidget:
-        page = QWidget(); form = QFormLayout(page)
+        page = QWidget(); form = QFormLayout(page); self._configure_form(form)
         self.dpi_control = self._appearance_spin("exportDpiControl", 300, lambda value: None, maximum=2400); form.addRow("DPI", self.dpi_control)
         self.transparent_control = QCheckBox("Transparent background"); self.transparent_control.setObjectName("transparentBackgroundControl"); form.addRow(self.transparent_control)
         return page
@@ -245,10 +247,32 @@ class PourbaixStudioMainWindow(QMainWindow):
                 background-color: #F1F3F6;
                 color: #1F2937;
             }
-            QGroupBox, QToolBox::tab {
+            QGroupBox {
                 background-color: #F1F3F6;
                 color: #1F2937;
                 border: 1px solid #AEB8C3;
+                border-radius: 4px;
+                margin-top: 16px;
+                padding: 12px 8px 8px 8px;
+                font-weight: 600;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                subcontrol-position: top left;
+                left: 10px;
+                padding: 2px 6px;
+                background-color: #F1F3F6;
+                color: #1F2937;
+            }
+            QToolBox::tab {
+                background-color: #E1E6EC;
+                color: #1F2937;
+                border: 1px solid #AEB8C3;
+                padding: 7px 9px;
+                font-weight: 600;
+            }
+            QToolBox::tab:selected {
+                background-color: #D1DAE3;
             }
             QLineEdit, QComboBox, QDoubleSpinBox, QListWidget, QTableWidget {
                 background-color: #DCE1E7;
@@ -293,12 +317,19 @@ class PourbaixStudioMainWindow(QMainWindow):
 
     def _build_toolbar(self) -> None:
         toolbar = QToolBar("Tools", self); self.addToolBar(toolbar)
-        toolbar.addAction("API settings", self.show_api_settings)
-        toolbar.addAction("Export data", self._choose_data_export)
-        toolbar.addAction("Export figure", self._choose_figure_export)
+        toolbar.addAction("API Settings", self.show_api_settings)
+        toolbar.addAction("Export Data", self._choose_data_export)
+        toolbar.addAction("Export Figure", self._choose_figure_export)
 
     def _appearance_spin(self, name, value, callback, *, maximum=100.0, step=0.1):
         control = QDoubleSpinBox(); control.setObjectName(name); control.setRange(0.0, maximum); control.setSingleStep(step); control.setValue(value); control.valueChanged.connect(callback); return control
+
+    @staticmethod
+    def _configure_form(form: QFormLayout) -> None:
+        form.setLabelAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        form.setFormAlignment(Qt.AlignmentFlag.AlignTop)
+        form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
+        form.setHorizontalSpacing(10)
 
     def _range_spin(self, name, value):
         control = QDoubleSpinBox(); control.setObjectName(name); control.setRange(-100.0, 100.0); control.setDecimals(3); control.setValue(value); return control
@@ -320,7 +351,10 @@ class PourbaixStudioMainWindow(QMainWindow):
         self.boundary_table.setRowCount(len(snapshot.boundaries))
         for row, boundary in enumerate(snapshot.boundaries):
             for column, value in enumerate((boundary.domain_label, boundary.vertex_index, boundary.ph, boundary.potential_v_she)):
-                self.boundary_table.setItem(row, column, QTableWidgetItem(str(value)))
+                item = QTableWidgetItem(str(value))
+                alignment = Qt.AlignmentFlag.AlignLeft if column == 0 else Qt.AlignmentFlag.AlignRight
+                item.setTextAlignment(alignment | Qt.AlignmentFlag.AlignVCenter)
+                self.boundary_table.setItem(row, column, item)
         self._render()
 
     def _generate(self, calculation_input) -> None:
