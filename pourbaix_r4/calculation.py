@@ -39,10 +39,15 @@ def calculate_snapshot(
     plotter_factory: Callable[[Any], Any] = PourbaixPlotter,
 ) -> ResultSnapshot:
     """Construct and clip a diagram exactly once for display and export consumers."""
-    diagram = diagram_factory(entries, comp_dict=inputs.comp_dict)
+    diagram = diagram_factory(
+        entries,
+        comp_dict=inputs.comp_dict,
+        conc_dict=inputs.conc_dict,
+        filter_solids=inputs.filter_solids,
+    )
     plotter = plotter_factory(diagram)
     stable_entries = tuple(diagram.stable_entries)
-    labels = tuple(str(entry) for entry in stable_entries)
+    labels = tuple(str(getattr(entry, "name", entry)) for entry in stable_entries)
     boundaries: list[BoundaryRecord] = []
     for entry, label in zip(stable_entries, labels, strict=True):
         vertices = plotter.domain_vertices(entry)
@@ -55,4 +60,5 @@ def calculate_snapshot(
         stable_domain_labels=labels,
         boundaries=tuple(boundaries),
         entries_count=len(entries),
+        plotter_payload=plotter,
     )
