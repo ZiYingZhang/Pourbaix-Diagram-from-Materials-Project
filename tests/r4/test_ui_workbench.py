@@ -1,5 +1,5 @@
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QDockWidget, QPushButton, QTabWidget
+from PySide6.QtWidgets import QCheckBox, QComboBox, QDockWidget, QDoubleSpinBox, QPushButton, QTabWidget, QToolBar
 
 from pourbaix_core import FetchResult
 from pourbaix_r4.credentials import ResolvedCredential
@@ -25,6 +25,10 @@ def test_workbench_exposes_required_docks_tabs_and_dynamic_interest_regions(qapp
         assert [tabs.tabText(index) for index in range(tabs.count())] == ["Diagram", "Available regions", "Boundary data"]
 
         window.show_snapshot(_snapshot())
+        assert len(window.interest_regions) == 1
+        canvas = window.diagram_layout.itemAt(0).widget()
+        assert len(canvas.figure.axes[0].patches) >= 1
+        assert window.interest_region_count() == 1
         window.add_interest_region("Fe(s)")
         assert window.interest_region_count() == 1
         window.remove_interest_region(0)
@@ -100,5 +104,70 @@ def test_workbench_exports_rendered_snapshot_image_without_refetching(qapplicati
         output = window.export_current_figure(tmp_path / "diagram.png", "png", dpi=144, transparent=True)
         assert output.is_file()
         assert output.stat().st_size > 0
+    finally:
+        window.close()
+
+
+def test_workbench_appearance_updates_rendering_without_invalidating_snapshot(qapplication):
+    window = PourbaixStudioMainWindow()
+    try:
+        snapshot = _snapshot(); window.show_snapshot(snapshot)
+        window.set_show_ion_labels(False)
+        assert window.appearance.show_ion_labels is False
+        assert window.session.exportable_snapshot is snapshot
+    finally:
+        window.close()
+
+
+def test_workbench_updates_line_style_without_invalidating_snapshot(qapplication):
+    window = PourbaixStudioMainWindow()
+    try:
+        snapshot = _snapshot(); window.show_snapshot(snapshot)
+        window.set_line_style(spine_width=2.5, stability_line_width=3.0, hydrogen_line_color="#123456")
+        assert window.appearance.spine_width == 2.5
+        assert window.appearance.stability_line_width == 3.0
+        assert window.appearance.hydrogen_line_color == "#123456"
+        assert window.session.exportable_snapshot is snapshot
+    finally:
+        window.close()
+
+
+def test_appearance_line_width_control_updates_snapshot_preserving_style(qapplication):
+    window = PourbaixStudioMainWindow()
+    try:
+        window.show_snapshot(_snapshot())
+        control = window.findChild(QDoubleSpinBox, "spineWidthControl")
+        control.setValue(2.2)
+        assert window.appearance.spine_width == 2.2
+        assert window.findChild(QComboBox, "ionLabelFontControl") is not None
+        assert window.findChild(QComboBox, "axisTickFontControl") is not None
+        assert window.findChild(QCheckBox, "transparentBackgroundControl") is not None
+        assert window.findChild(QDoubleSpinBox, "exportDpiControl") is not None
+    finally:
+        window.close()
+
+
+def test_toolbar_defers_partial_bilingual_switch_and_exposes_figure_export(qapplication):
+    window = PourbaixStudioMainWindow()
+    try:
+        action_texts = [action.text() for action in window.findChildren(QToolBar)[0].actions()]
+        assert "中文" not in action_texts
+        assert "English" not in action_texts
+        assert "Export figure" in action_texts
+    finally:
+        window.close()
+
+
+def test_workbench_applies_full_appearance_options_without_staling_snapshot(qapplication):
+    window = PourbaixStudioMainWindow()
+    try:
+        snapshot = _snapshot(); window.show_snapshot(snapshot)
+        window.apply_appearance(ion_label_font_size=18, axis_tick_font_size=16, major_tick_length=9, show_minor_ticks=False, oxygen_line_color="#654321")
+        assert window.appearance.ion_label_font_size == 18
+        assert window.appearance.axis_tick_font_size == 16
+        assert window.appearance.major_tick_length == 9
+        assert window.appearance.show_minor_ticks is False
+        assert window.appearance.oxygen_line_color == "#654321"
+        assert window.session.exportable_snapshot is snapshot
     finally:
         window.close()

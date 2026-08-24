@@ -37,6 +37,14 @@ def render_snapshot(
     potential_min, potential_max = snapshot.calculation_input.potential_range
     vertices_by_label = _domain_vertices(snapshot)
     known_labels = set(snapshot.stable_domain_labels)
+    formal_plotter = snapshot.plotter_payload
+    if formal_plotter is not None and hasattr(formal_plotter, "get_pourbaix_plot"):
+        formal_plotter.get_pourbaix_plot(
+            limits=(snapshot.calculation_input.ph_range, snapshot.calculation_input.potential_range),
+            label_domains=appearance.show_ion_labels,
+            label_fontsize=int(appearance.ion_label_font_size),
+            ax=axis,
+        )
     for region in regions:
         if region.label not in known_labels:
             raise PlottingError(f"Unknown interest region: {region.label}")
@@ -45,6 +53,8 @@ def render_snapshot(
             axis.add_patch(Polygon(vertices, closed=True, facecolor=region.color, alpha=region.opacity, edgecolor="none"))
 
     for label, vertices in vertices_by_label.items():
+        if formal_plotter is not None and hasattr(formal_plotter, "get_pourbaix_plot"):
+            continue
         if len(vertices) >= 2:
             closed_vertices = [*vertices, vertices[0]]
             xs, ys = zip(*closed_vertices, strict=True)

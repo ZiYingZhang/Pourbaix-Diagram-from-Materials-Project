@@ -21,6 +21,11 @@ class ApiSettingsDialog(QDialog):
         self.api_input = QLineEdit()
         self.api_input.setEchoMode(QLineEdit.EchoMode.Password)
         layout.addWidget(self.api_input)
+        self.api_key_link = QPushButton("Get a Materials Project API key")
+        self.api_key_link.setFlat(True)
+        self.api_key_link.setStyleSheet("QPushButton { color: #2f80ed; text-decoration: underline; text-align: left; }")
+        self.api_key_link.clicked.connect(self.open_key_page)
+        layout.addWidget(self.api_key_link)
         remember = QPushButton("Remember on this computer"); remember.clicked.connect(self.remember_current_key); layout.addWidget(remember)
         forget = QPushButton("Forget saved key"); forget.clicked.connect(self.forget_saved_key); layout.addWidget(forget)
 

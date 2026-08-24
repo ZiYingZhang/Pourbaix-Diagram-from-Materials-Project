@@ -117,5 +117,8 @@ def test_api_dialog_masks_remembers_forgets_and_exposes_direct_links(qapplicatio
             "https://next-gen.materialsproject.org/api",
             "https://docs.materialsproject.org/downloading-data/using-the-api/getting-started",
         ]
+        assert dialog.api_key_link.text() == "Get a Materials Project API key"
+        dialog.api_key_link.click()
+        assert opened[-1].toString() == "https://next-gen.materialsproject.org/api"
     finally:
         dialog.close()
