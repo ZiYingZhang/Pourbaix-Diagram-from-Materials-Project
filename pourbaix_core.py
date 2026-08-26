@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import math
+import sys
 from types import MethodType
 from typing import Any
 import warnings as _warnings
@@ -76,7 +77,9 @@ def _record_warning(
         logging.getLogger("pourbaix_core.warnings").warning("%s", formatted.strip())
     except Exception:
         pass
-    _ORIGINAL_SHOWWARNING(message, category, filename, lineno, file, line)
+    output = file if file is not None else getattr(sys, "stderr", None)
+    if callable(getattr(output, "write", None)):
+        _ORIGINAL_SHOWWARNING(message, category, filename, lineno, output, line)
 
 
 def install_warning_capture() -> None:

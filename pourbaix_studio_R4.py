@@ -3,8 +3,19 @@
 from __future__ import annotations
 
 import argparse
+import os
 from pathlib import Path
+import sys
 from typing import Sequence
+
+
+def prepare_windowed_runtime() -> None:
+    """Make console-oriented dependencies safe in a windowed executable."""
+    os.environ.setdefault("TQDM_DISABLE", "1")
+    for stream_name in ("stdout", "stderr"):
+        stream = getattr(sys, stream_name, None)
+        if not callable(getattr(stream, "write", None)):
+            setattr(sys, stream_name, open(os.devnull, "w", encoding="utf-8"))
 
 
 def run_self_test() -> int:
@@ -57,6 +68,7 @@ def run_gui() -> int:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    prepare_windowed_runtime()
     parser = argparse.ArgumentParser(description="Pourbaix Studio R4")
     parser.add_argument("--self-test", action="store_true", help="verify runtime dependencies")
     parser.add_argument("--gui-smoke", action="store_true", help="construct and close the offline workbench")
