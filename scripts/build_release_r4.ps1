@@ -106,6 +106,12 @@ if ($LASTEXITCODE -ne 0) {
     throw "R4 source GUI smoke failed with exit code $LASTEXITCODE."
 }
 
+$OriginalBuildPath = $env:PATH
+$env:PATH = Remove-IncompatibleIcuDirectoriesFromPath -PathValue $OriginalBuildPath
+if ($env:PATH -ne $OriginalBuildPath) {
+    Write-Output "Removed non-system ICU directories from the PyInstaller PATH."
+}
+
 & $Python -m PyInstaller --noconfirm --clean --workpath $ResolvedBuildRoot --distpath $ResolvedReleaseRoot "pourbaix_studio_R4.spec"
 if ($LASTEXITCODE -ne 0) {
     throw "R4 PyInstaller build failed with exit code $LASTEXITCODE."
