@@ -1,6 +1,6 @@
 # Project Memory
 
-Last updated: 2026-08-25
+Last updated: 2026-08-26
 
 ## Authoritative documents
 
@@ -13,12 +13,13 @@ Last updated: 2026-08-25
 ## Current handoff
 
 - Branch: `codex/r4-foundation`
-- Checkpoint: R4 core UI, plotting, portable source paths, and Windows `onedir` packaging are implemented.
-- Latest source evidence: 155 tests passed; R4 source self-test and GUI smoke passed.
-- Latest package evidence: packaged and extracted self-test/GUI smoke passed for `_release/R4.0/PourbaixStudioR4-win64.zip`.
-- Candidate SHA-256: `0CC7E74203BB594C8ABEF48C14CD27E1FBF711ED9C8873CE20D13B3AEA6F7D3F`.
-- The candidate manifest records a dirty working tree because it was built before the implementation commit and while the user-owned untracked `test Sb2Se3.svg` was present. Rebuild after committing before treating an archive as final.
-- Next product task: style presets; design was discussed but not yet implemented.
+- Checkpoint: R4 core UI, Origin-style plotting controls, application branding, portable source paths, and Windows `onedir` packaging are implemented.
+- Latest source evidence: 126 R4 tests passed; R4 source self-test and GUI smoke passed.
+- Latest package evidence: source, packaged, and freshly extracted self-test/GUI smoke passed for `_release/R4.0/PourbaixStudioR4-win64.zip`.
+- Release source commit: `3cb6fc415c5b8609f68eb49634b337b387437155` with `working_tree_dirty: false` in the manifest.
+- Candidate SHA-256: `2E44ECBFFA74AD84723B9B62FD23EFD0E5DE69D5E341CC37C131EDD028755408`.
+- Packaging fix: non-system ICU directories are removed from the PyInstaller PATH so external Poppler ICU DLLs cannot shadow the Windows ICU required by PySide6.
+- Next product task: repair API-key session use and actionable calculation diagnostics before the first public R4 release.
 
 ## Non-negotiable behavior
 
