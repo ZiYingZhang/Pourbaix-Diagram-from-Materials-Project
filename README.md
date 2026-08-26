@@ -2,6 +2,8 @@
 
 Pourbaix Studio R4 is a Windows desktop workbench for querying Materials Project data and creating publication-ready pH–potential stability diagrams through pymatgen.
 
+Official repository: <https://github.com/ZiYingZhang/Pourbaix-Diagram-from-Materials-Project>
+
 ## Run from source
 
 The verified development target is Windows x64 with CPython 3.13. From the project folder:
@@ -23,7 +25,7 @@ VS Code uses `${workspaceFolder}`-relative settings. The source folder may there
 - Composition, ion-concentration, solid-filter, pH, and potential controls
 - Correct clipped equilibrium-domain polygons and selectable region fills
 - Re-plotting from the current result without another API request
-- Publication controls for labels, fonts, axis titles, ticks, lines, view range, DPI, and transparency
+- Publication controls for labels, fonts, axis titles, major-tick increments, lines, view range, physical page size, DPI, and transparency
 - Figure export to PNG, SVG, and TIFF; boundary export to CSV, XLSX, and TXT
 - Scrollable sidebars, periodic-table selection, compact-screen layout, and Focus Plot mode
 
@@ -50,6 +52,8 @@ Outputs are written to `_release\R4.0`:
 Keep `PourbaixStudioR4.exe` beside its `_internal` directory. The whole `PourbaixStudioR4` folder may be moved to another location.
 
 Clean-machine verification on a separate Windows x64 computer without Python remains an external acceptance step for each final archive hash.
+
+Published Windows packages will be available from the repository's [Releases page](https://github.com/ZiYingZhang/Pourbaix-Diagram-from-Materials-Project/releases).
 
 ## Scientific contract
 

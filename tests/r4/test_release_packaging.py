@@ -39,6 +39,13 @@ def test_r4_spec_is_environment_relative_and_targets_r4_entrypoint():
     assert "E:\\" not in source
 
 
+def test_r4_spec_embeds_windows_and_runtime_icon_assets():
+    source = SPEC.read_text(encoding="utf-8")
+
+    assert '"assets", "pourbaix-studio-r4.png"' in source
+    assert 'icon=os.path.join(project_root, "assets", "pourbaix-studio-r4.ico")' in source
+
+
 def test_r4_release_script_accepts_only_dedicated_project_staging_paths():
     accepted = _validate_paths("_build/R4.0-test", "_release/R4.0-test")
     rejected_root = _validate_paths(".", "_release/R4.0-test")
@@ -57,6 +64,12 @@ def test_r4_release_tests_use_a_build_local_temporary_directory():
 
     assert '$env:TEMP = Join-Path $ResolvedBuildRoot "temp"' in source
     assert '$env:TMP = $env:TEMP' in source
+
+
+def test_r4_release_runs_only_the_r4_release_gate():
+    source = BUILD_SCRIPT.read_text(encoding="utf-8")
+
+    assert '& $Python -m pytest -q "tests/r4"' in source
 
 
 def test_release_instructions_name_the_r4_source_and_portable_executable():

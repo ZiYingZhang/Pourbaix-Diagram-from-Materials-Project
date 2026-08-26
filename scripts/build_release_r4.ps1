@@ -55,6 +55,14 @@ if (-not (Test-Path -LiteralPath $Python -PathType Leaf)) {
     throw "Python 3.13 environment not found: $Python"
 }
 
+$SourcePngIcon = Join-Path $ProjectRoot "assets\pourbaix-studio-r4.png"
+$SourceWindowsIcon = Join-Path $ProjectRoot "assets\pourbaix-studio-r4.ico"
+foreach ($IconAsset in @($SourcePngIcon, $SourceWindowsIcon)) {
+    if (-not (Test-Path -LiteralPath $IconAsset -PathType Leaf)) {
+        throw "Required application icon was not found: $IconAsset"
+    }
+}
+
 $GitStatus = (& git status --porcelain) -join "`n"
 if ($LASTEXITCODE -ne 0) {
     throw "Unable to read Git working-tree status."
@@ -77,7 +85,7 @@ $env:TMP = $env:TEMP
 $env:QT_QPA_PLATFORM = "offscreen"
 New-Item -ItemType Directory -Path $env:TEMP -Force | Out-Null
 
-$TestOutput = & $Python -m pytest -q 2>&1
+$TestOutput = & $Python -m pytest -q "tests/r4" 2>&1
 $TestExitCode = $LASTEXITCODE
 $TestOutput | ForEach-Object { Write-Output $_ }
 if ($TestExitCode -ne 0) {
@@ -107,6 +115,10 @@ $PackageDir = Join-Path $ResolvedReleaseRoot "PourbaixStudioR4"
 $PackageExe = Join-Path $PackageDir "PourbaixStudioR4.exe"
 if (-not (Test-Path -LiteralPath $PackageExe -PathType Leaf)) {
     throw "Packaged R4 executable not found: $PackageExe"
+}
+$PackagedRuntimeIcon = Join-Path $PackageDir "_internal\assets\pourbaix-studio-r4.png"
+if (-not (Test-Path -LiteralPath $PackagedRuntimeIcon -PathType Leaf)) {
+    throw "Packaged runtime icon was not found: $PackagedRuntimeIcon"
 }
 
 foreach ($Doc in @("README.md", "USER_GUIDE.md", "THIRD_PARTY_NOTICES.md", "requirements-lock-py313-win64-r4.txt")) {
@@ -190,7 +202,13 @@ $Manifest = [ordered]@{
         directory = "PourbaixStudioR4"
         files = $PackageFiles
         pymatgen_core_entries = $EntriesPayload.FullName.Substring($PackageDir.Length).TrimStart("\")
+        runtime_icon = $PackagedRuntimeIcon.Substring($PackageDir.Length).TrimStart("\")
         forbidden_files = 0
+    }
+    branding = [ordered]@{
+        repository = "https://github.com/ZiYingZhang/Pourbaix-Diagram-from-Materials-Project"
+        source_png = "assets/pourbaix-studio-r4.png"
+        windows_icon = "assets/pourbaix-studio-r4.ico"
     }
     archive = [ordered]@{
         name = $ArchiveItem.Name

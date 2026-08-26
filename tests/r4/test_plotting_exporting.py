@@ -1,7 +1,9 @@
 from pathlib import Path
+import xml.etree.ElementTree as ET
 
 import pandas as pd
 import pytest
+from PIL import Image
 from shapely.geometry import Polygon
 
 from pourbaix_r4.exporting import ExportError, export_boundaries, export_figure
@@ -254,3 +256,43 @@ def test_export_figure_rejects_unknown_format():
 
     with pytest.raises(ExportError, match="Unsupported"):
         export_figure(figure, Path("unused.json"), "json", dpi=300, transparent=False)
+
+
+def test_render_snapshot_uses_selected_physical_figure_size():
+    figure = render_snapshot(
+        _snapshot(),
+        AppearanceSettings(figure_width_inches=4.0, figure_height_inches=3.0),
+        [],
+    )
+
+    assert tuple(figure.get_size_inches()) == pytest.approx((4.0, 3.0))
+
+
+def test_render_snapshot_uses_independent_major_tick_increments():
+    figure = render_snapshot(
+        _snapshot(),
+        AppearanceSettings(x_major_tick_interval=5.0, y_major_tick_interval=2.0),
+        [],
+    )
+    axis = figure.axes[0]
+
+    visible_x_ticks = [tick for tick in axis.get_xticks() if 0.0 <= tick <= 14.0]
+    visible_y_ticks = [tick for tick in axis.get_yticks() if -2.0 <= tick <= 4.0]
+    assert visible_x_ticks == pytest.approx([0.0, 5.0, 10.0])
+    assert visible_y_ticks == pytest.approx([-2.0, 0.0, 2.0, 4.0])
+
+
+def test_raster_and_svg_exports_preserve_selected_page_size(tmp_path):
+    figure = render_snapshot(
+        _snapshot(),
+        AppearanceSettings(figure_width_inches=4.0, figure_height_inches=3.0),
+        [],
+    )
+    png_path = export_figure(figure, tmp_path / "sized.png", "png", dpi=100, transparent=False)
+    svg_path = export_figure(figure, tmp_path / "sized.svg", "svg", dpi=100, transparent=False)
+
+    with Image.open(png_path) as image:
+        assert image.size == (400, 300)
+    root = ET.parse(svg_path).getroot()
+    assert root.attrib["width"] == "288pt"
+    assert root.attrib["height"] == "216pt"

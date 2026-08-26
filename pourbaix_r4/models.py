@@ -58,6 +58,8 @@ class AppearanceSettings:
     solid_line_width: float = 2.0
     stability_line_width: float = 2.0
     major_tick_direction: str = "out"
+    x_major_tick_interval: float | None = None
+    y_major_tick_interval: float | None = None
     major_tick_length: float = 8.0
     major_tick_width: float = 1.0
     show_x_ticks: bool = True
@@ -69,6 +71,8 @@ class AppearanceSettings:
     show_y_tick_labels: bool = True
     hydrogen_line_color: str = "#FF0000"
     oxygen_line_color: str = "#0070C0"
+    figure_width_inches: float = 18.0 / 2.54
+    figure_height_inches: float = 12.0 / 2.54
 
 
 @dataclass(frozen=True)

@@ -10,6 +10,8 @@ datas = []
 binaries = []
 hiddenimports = []
 
+datas += [(os.path.join(project_root, "assets", "pourbaix-studio-r4.png"), "assets")]
+
 for package in ("pymatgen", "mp_api", "mpcontribs", "emmet", "shapely", "keyring"):
     package_datas, package_binaries, package_hidden = collect_all(package)
     datas += package_datas
@@ -71,6 +73,7 @@ exe = EXE(
     strip=False,
     upx=False,
     console=False,
+    icon=os.path.join(project_root, "assets", "pourbaix-studio-r4.ico"),
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,

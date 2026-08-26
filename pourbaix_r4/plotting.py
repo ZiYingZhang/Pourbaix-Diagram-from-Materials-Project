@@ -8,7 +8,7 @@ from collections.abc import Sequence
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.figure import Figure
 from matplotlib.patches import Polygon
-from matplotlib.ticker import AutoMinorLocator
+from matplotlib.ticker import AutoMinorLocator, MultipleLocator
 
 from pourbaix_r4.models import AppearanceSettings, InterestRegion, ResultSnapshot
 
@@ -32,7 +32,10 @@ def render_snapshot(
     view_limits: tuple[tuple[float, float], tuple[float, float]] | None = None,
 ) -> Figure:
     """Render already-clipped snapshot geometry without fetching or recalculating."""
-    figure = Figure(layout="constrained")
+    figure = Figure(
+        figsize=(appearance.figure_width_inches, appearance.figure_height_inches),
+        layout="constrained",
+    )
     FigureCanvasAgg(figure)
     axis = figure.add_subplot(111)
     limits = view_limits or (
@@ -87,6 +90,10 @@ def render_snapshot(
     axis.plot(ph_values, tuple(1.229 - 0.0591 * value for value in ph_values), color=appearance.oxygen_line_color, linewidth=appearance.stability_line_width, linestyle="--")
     axis.set_xlim(ph_min, ph_max)
     axis.set_ylim(potential_min, potential_max)
+    if appearance.x_major_tick_interval is not None:
+        axis.xaxis.set_major_locator(MultipleLocator(appearance.x_major_tick_interval))
+    if appearance.y_major_tick_interval is not None:
+        axis.yaxis.set_major_locator(MultipleLocator(appearance.y_major_tick_interval))
     axis.set_xlabel(appearance.x_axis_label, fontsize=appearance.x_axis_label_size, fontname=appearance.x_axis_label_font)
     axis.set_ylabel(appearance.y_axis_label, fontsize=appearance.y_axis_label_size, fontname=appearance.y_axis_label_font)
     for spine in axis.spines.values():

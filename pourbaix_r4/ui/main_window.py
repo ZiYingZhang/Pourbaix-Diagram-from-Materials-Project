@@ -7,8 +7,8 @@ from typing import Callable
 from dataclasses import replace
 
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg, NavigationToolbar2QT
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QColor, QFont, QPalette
+from PySide6.QtCore import QEvent, QTimer, Qt
+from PySide6.QtGui import QColor, QFont, QIcon, QPalette
 from PySide6.QtWidgets import (
     QCheckBox, QColorDialog, QComboBox, QDockWidget, QDoubleSpinBox, QFileDialog, QFormLayout,
     QApplication, QFontComboBox, QFrame, QHeaderView, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem, QMainWindow,
@@ -20,9 +20,10 @@ from pourbaix_r4.i18n import Language, PreferenceStore
 from pourbaix_r4.calculation import calculate_snapshot
 from pourbaix_r4.credentials import WindowsCredentialStore, resolve_api_key
 from pourbaix_r4.exporting import ExportError, export_boundaries, export_figure
+from pourbaix_r4.figure_size import FIGURE_SIZE_PRESETS_CM, convert_length, pixel_dimensions
 from pourbaix_r4.materials_project import CachedEntryService, MPResterEntryProvider
 from pourbaix_r4.models import AppearanceSettings, InterestRegion, ResultSnapshot
-from pourbaix_r4.paths import legacy_api_key_path
+from pourbaix_r4.paths import application_resource_path, legacy_api_key_path
 from pourbaix_r4.plotting import render_snapshot
 from pourbaix_r4.session import CalculationSession
 from pourbaix_r4.ui.composition_panel import CompositionPanel
@@ -69,6 +70,8 @@ class PourbaixStudioMainWindow(QMainWindow):
         self.appearance = AppearanceSettings()
         self.interest_regions: list[InterestRegion] = []
         self._canvas = None
+        self._figure_display_unit = "cm"
+        self._figure_aspect_ratio = self.appearance.figure_width_inches / self.appearance.figure_height_inches
         self._screen_layout_applied = False
         self._dock_visibility_before_focus = (True, True)
         self._language: Language = self.preferences.language()
@@ -78,6 +81,11 @@ class PourbaixStudioMainWindow(QMainWindow):
         )
         self._calculate = calculate
         self.setWindowTitle("Pourbaix Studio R4")
+        application_icon = QIcon(str(application_resource_path("assets/pourbaix-studio-r4.png")))
+        self.setWindowIcon(application_icon)
+        application = QApplication.instance()
+        if application is not None:
+            application.setWindowIcon(application_icon)
         self.resize(1280, 800)
         self._apply_light_palette()
         self._build_workspace()
@@ -88,6 +96,7 @@ class PourbaixStudioMainWindow(QMainWindow):
         self.workspace_tabs = QTabWidget()
         self.workspace_tabs.setObjectName("workspaceTabs")
         self.diagram_host = QWidget(); self.diagram_host.setObjectName("diagramHost"); self.diagram_layout = QVBoxLayout(self.diagram_host)
+        self.diagram_host.installEventFilter(self)
         self.diagram_layout.addWidget(QLabel("Generate a diagram to begin."))
         self.workspace_tabs.addTab(self.diagram_host, "Diagram")
         self.available_regions = QListWidget(); self.workspace_tabs.addTab(self.available_regions, "Available regions")
@@ -201,6 +210,7 @@ class PourbaixStudioMainWindow(QMainWindow):
             ("TICK LABELS", self._build_tick_labels_page(), "tickLabels", False),
             ("DOMAIN AND STABILITY LINES", self._build_lines_page(), "domainLines", False),
             ("VIEW RANGE", self._build_view_page(), "viewRange", False),
+            ("FIGURE SIZE", self._build_figure_size_page(), "figureSize", False),
             ("IMAGE EXPORT", self._build_export_page(), "imageExport", False),
         )
         for title, page, name, expanded in sections:
@@ -236,6 +246,8 @@ class PourbaixStudioMainWindow(QMainWindow):
             self.major_tick_direction.addItem(text, value)
         self.major_tick_direction.setCurrentIndex(self.major_tick_direction.findData(self.appearance.major_tick_direction))
         self.major_tick_direction.currentIndexChanged.connect(lambda index: self.apply_appearance(major_tick_direction=self.major_tick_direction.itemData(index))); form.addRow("Direction", self.major_tick_direction)
+        x_major_interval = self._major_interval_spin("xMajorTickIntervalControl", self.appearance.x_major_tick_interval, lambda value: self.apply_appearance(x_major_tick_interval=value)); form.addRow("X major increment", x_major_interval)
+        y_major_interval = self._major_interval_spin("yMajorTickIntervalControl", self.appearance.y_major_tick_interval, lambda value: self.apply_appearance(y_major_tick_interval=value)); form.addRow("Y major increment", y_major_interval)
         major_length = self._appearance_spin("majorTickLengthControl", self.appearance.major_tick_length, lambda value: self.apply_appearance(major_tick_length=value)); form.addRow("Major length", major_length)
         major_width = self._appearance_spin("majorTickWidthControl", self.appearance.major_tick_width, lambda value: self.apply_appearance(major_tick_width=value)); form.addRow("Major width", major_width)
         self.minor_ticks = QCheckBox("Show minor ticks"); self.minor_ticks.setObjectName("showMinorTicksControl"); self.minor_ticks.setChecked(self.appearance.show_minor_ticks); self.minor_ticks.toggled.connect(lambda value: self.apply_appearance(show_minor_ticks=value)); form.addRow(self.minor_ticks)
@@ -270,9 +282,132 @@ class PourbaixStudioMainWindow(QMainWindow):
 
     def _build_export_page(self) -> QWidget:
         page = QWidget(); form = QFormLayout(page); self._configure_form(form)
-        self.dpi_control = self._appearance_spin("exportDpiControl", 300, lambda value: None, maximum=2400); form.addRow("DPI", self.dpi_control)
+        self.dpi_control = self._appearance_spin("exportDpiControl", 300, lambda value: self._update_figure_pixel_label(), maximum=2400); form.addRow("DPI", self.dpi_control)
         self.transparent_control = QCheckBox("Transparent background"); self.transparent_control.setObjectName("transparentBackgroundControl"); form.addRow(self.transparent_control)
+        self._update_figure_pixel_label()
         return page
+
+    def _build_figure_size_page(self) -> QWidget:
+        page = QWidget(); form = QFormLayout(page); self._configure_form(form)
+        self.figure_size_preset = QComboBox(); self.figure_size_preset.setObjectName("figureSizePresetControl")
+        for name in (*FIGURE_SIZE_PRESETS_CM, "Custom"):
+            self.figure_size_preset.addItem(name, name)
+        self.figure_size_preset.currentIndexChanged.connect(self._apply_figure_size_preset)
+        form.addRow("Preset", self.figure_size_preset)
+
+        self.figure_size_unit = QComboBox(); self.figure_size_unit.setObjectName("figureSizeUnitControl")
+        for label, unit in (("cm", "cm"), ("mm", "mm"), ("inch", "inch")):
+            self.figure_size_unit.addItem(label, unit)
+        self.figure_size_unit.currentIndexChanged.connect(self._change_figure_size_unit)
+        form.addRow("Unit", self.figure_size_unit)
+
+        self.figure_width = self._figure_dimension_spin("figureWidthControl", 18.0)
+        self.figure_height = self._figure_dimension_spin("figureHeightControl", 12.0)
+        self.figure_width.valueChanged.connect(lambda value: self._figure_dimension_changed("width", value))
+        self.figure_height.valueChanged.connect(lambda value: self._figure_dimension_changed("height", value))
+        form.addRow("Width", self.figure_width)
+        form.addRow("Height", self.figure_height)
+
+        self.lock_figure_aspect = QCheckBox("Lock aspect ratio")
+        self.lock_figure_aspect.setObjectName("lockFigureAspectControl")
+        self.lock_figure_aspect.setChecked(True)
+        form.addRow(self.lock_figure_aspect)
+
+        swap = QPushButton("Swap orientation")
+        swap.setObjectName("swapFigureOrientationButton")
+        swap.clicked.connect(self._swap_figure_orientation)
+        form.addRow(swap)
+
+        self.figure_pixel_size = QLabel()
+        self.figure_pixel_size.setObjectName("figurePixelSizeLabel")
+        form.addRow("Output", self.figure_pixel_size)
+
+        apply_button = QPushButton("Apply page size")
+        apply_button.setObjectName("applyFigureSizeButton")
+        apply_button.clicked.connect(self.apply_figure_size)
+        form.addRow(apply_button)
+        self._update_figure_pixel_label()
+        return page
+
+    @staticmethod
+    def _figure_dimension_spin(name: str, value: float) -> QDoubleSpinBox:
+        control = QDoubleSpinBox()
+        control.setObjectName(name)
+        control.setRange(0.1, 1000.0)
+        control.setDecimals(3)
+        control.setSingleStep(0.5)
+        control.setValue(value)
+        return control
+
+    def _set_figure_dimensions(self, width: float, height: float) -> None:
+        self.figure_width.blockSignals(True); self.figure_height.blockSignals(True)
+        self.figure_width.setValue(width); self.figure_height.setValue(height)
+        self.figure_width.blockSignals(False); self.figure_height.blockSignals(False)
+        self._figure_aspect_ratio = width / height
+        self._update_figure_pixel_label()
+
+    def _select_custom_figure_size(self) -> None:
+        index = self.figure_size_preset.findData("Custom")
+        self.figure_size_preset.blockSignals(True)
+        self.figure_size_preset.setCurrentIndex(index)
+        self.figure_size_preset.blockSignals(False)
+
+    def _apply_figure_size_preset(self, index: int) -> None:
+        name = self.figure_size_preset.itemData(index)
+        if name not in FIGURE_SIZE_PRESETS_CM:
+            return
+        width_cm, height_cm = FIGURE_SIZE_PRESETS_CM[name]
+        self._set_figure_dimensions(
+            convert_length(width_cm, "cm", self._figure_display_unit),
+            convert_length(height_cm, "cm", self._figure_display_unit),
+        )
+
+    def _change_figure_size_unit(self, index: int) -> None:
+        new_unit = self.figure_size_unit.itemData(index)
+        if not new_unit or new_unit == self._figure_display_unit:
+            return
+        width = convert_length(self.figure_width.value(), self._figure_display_unit, new_unit)
+        height = convert_length(self.figure_height.value(), self._figure_display_unit, new_unit)
+        self._figure_display_unit = new_unit
+        self._set_figure_dimensions(width, height)
+
+    def _figure_dimension_changed(self, dimension: str, value: float) -> None:
+        if self.lock_figure_aspect.isChecked():
+            other = self.figure_height if dimension == "width" else self.figure_width
+            other.blockSignals(True)
+            other.setValue(value / self._figure_aspect_ratio if dimension == "width" else value * self._figure_aspect_ratio)
+            other.blockSignals(False)
+        self._select_custom_figure_size()
+        self._update_figure_pixel_label()
+
+    def _swap_figure_orientation(self) -> None:
+        self._set_figure_dimensions(self.figure_height.value(), self.figure_width.value())
+        self._select_custom_figure_size()
+
+    def _current_figure_inches(self) -> tuple[float, float]:
+        return (
+            convert_length(self.figure_width.value(), self._figure_display_unit, "inch"),
+            convert_length(self.figure_height.value(), self._figure_display_unit, "inch"),
+        )
+
+    def _update_figure_pixel_label(self) -> None:
+        if not hasattr(self, "figure_pixel_size"):
+            return
+        width_inches, height_inches = self._current_figure_inches()
+        dpi = self.dpi_control.value() if hasattr(self, "dpi_control") else 300
+        width_px, height_px = pixel_dimensions(width_inches, height_inches, dpi)
+        self.figure_pixel_size.setText(f"{width_px} × {height_px} px at {int(dpi)} DPI")
+
+    def apply_figure_size(self) -> None:
+        width_inches, height_inches = self._current_figure_inches()
+        self.appearance = replace(
+            self.appearance,
+            figure_width_inches=width_inches,
+            figure_height_inches=height_inches,
+        )
+        self._figure_aspect_ratio = width_inches / height_inches
+        self._render()
+        self.statusBar().showMessage("Page size applied to the current result; no API request was made.")
 
     def _apply_light_palette(self) -> None:
         application = QApplication.instance()
@@ -484,6 +619,18 @@ class PourbaixStudioMainWindow(QMainWindow):
     def _appearance_spin(self, name, value, callback, *, maximum=100.0, step=0.1):
         control = QDoubleSpinBox(); control.setObjectName(name); control.setRange(0.0, maximum); control.setSingleStep(step); control.setValue(value); control.valueChanged.connect(callback); return control
 
+    @staticmethod
+    def _major_interval_spin(name, value, callback):
+        control = QDoubleSpinBox()
+        control.setObjectName(name)
+        control.setRange(0.0, 100.0)
+        control.setDecimals(3)
+        control.setSingleStep(0.5)
+        control.setSpecialValueText("Auto")
+        control.setValue(0.0 if value is None else value)
+        control.valueChanged.connect(lambda current: callback(None if current == 0.0 else current))
+        return control
+
     def _font_combo(self, name, value, callback):
         control = QFontComboBox(); control.setObjectName(name); control.setCurrentFont(QFont(value)); control.currentFontChanged.connect(lambda font: callback(font.family())); return control
 
@@ -543,7 +690,7 @@ class PourbaixStudioMainWindow(QMainWindow):
         snapshot = self.session.exportable_snapshot
         if snapshot is None:
             raise ExportError("Generate a current diagram before exporting an image")
-        figure = self._canvas.figure if self._canvas is not None else render_snapshot(snapshot, self.appearance, self.interest_regions, view_limits=self._view_limits())
+        figure = render_snapshot(snapshot, self.appearance, self.interest_regions, view_limits=self._view_limits())
         return export_figure(figure, Path(path), image_format, dpi=dpi, transparent=transparent)
 
     def _choose_data_export(self) -> None:
@@ -577,8 +724,31 @@ class PourbaixStudioMainWindow(QMainWindow):
         while self.diagram_layout.count():
             child = self.diagram_layout.takeAt(0).widget()
             if child is not None: child.deleteLater()
-        self.diagram_layout.addWidget(toolbar); self.diagram_layout.addWidget(canvas)
+        self.diagram_layout.addWidget(toolbar); self.diagram_layout.addWidget(canvas, 1, Qt.AlignmentFlag.AlignCenter)
         self._canvas = canvas
+        QTimer.singleShot(0, self._fit_canvas_to_host)
+
+    def eventFilter(self, watched, event) -> bool:
+        if watched is self.diagram_host and event.type() == QEvent.Type.Resize:
+            QTimer.singleShot(0, self._fit_canvas_to_host)
+        return super().eventFilter(watched, event)
+
+    def _fit_canvas_to_host(self) -> None:
+        if self._canvas is None:
+            return
+        margins = self.diagram_layout.contentsMargins()
+        available_width = max(100, self.diagram_host.width() - margins.left() - margins.right())
+        toolbar = self.findChild(QToolBar, "plotNavigationToolbar")
+        toolbar_height = toolbar.sizeHint().height() if toolbar is not None else 0
+        available_height = max(100, self.diagram_host.height() - margins.top() - margins.bottom() - toolbar_height - self.diagram_layout.spacing())
+        ratio = self.appearance.figure_width_inches / self.appearance.figure_height_inches
+        width = available_width
+        height = round(width / ratio)
+        if height > available_height:
+            height = available_height
+            width = round(height * ratio)
+        self._canvas.setMinimumSize(0, 0)
+        self._canvas.setMaximumSize(max(100, width), max(100, height))
 
     def _view_limits(self):
         ph_range = (self.view_ph_min.value(), self.view_ph_max.value())

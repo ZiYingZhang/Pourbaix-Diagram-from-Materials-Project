@@ -1,3 +1,5 @@
+import pytest
+
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPalette
 from PySide6.QtWidgets import QCheckBox, QComboBox, QDockWidget, QDoubleSpinBox, QFrame, QHeaderView, QLabel, QLineEdit, QPushButton, QScrollArea, QSlider, QTabWidget, QToolBar, QToolButton
@@ -266,6 +268,7 @@ def test_postprocessing_titles_and_boundary_table_use_clear_alignment(qapplicati
             "TICK LABELS",
             "DOMAIN AND STABILITY LINES",
             "VIEW RANGE",
+            "FIGURE SIZE",
             "IMAGE EXPORT",
         ]
         assert all(
@@ -375,5 +378,89 @@ def test_workbench_applies_full_appearance_options_without_staling_snapshot(qapp
         assert window.appearance.show_minor_ticks is False
         assert window.appearance.oxygen_line_color == "#654321"
         assert window.session.exportable_snapshot is snapshot
+    finally:
+        window.close()
+
+
+def test_figure_size_controls_apply_without_fetching_or_recalculating(qapplication):
+    fetch_calls = []
+    calculate_calls = []
+
+    class Entries:
+        def fetch(self, elements, api_key):
+            fetch_calls.append((elements, api_key))
+
+    def calculate(*args):
+        calculate_calls.append(args)
+
+    window = PourbaixStudioMainWindow(entry_service=Entries(), calculate=calculate)
+    try:
+        snapshot = _snapshot()
+        window.show_snapshot(snapshot)
+        section = window.findChild(QFrame, "figureSizeSection")
+        units = window.findChild(QComboBox, "figureSizeUnitControl")
+        width = window.findChild(QDoubleSpinBox, "figureWidthControl")
+        height = window.findChild(QDoubleSpinBox, "figureHeightControl")
+        apply_button = window.findChild(QPushButton, "applyFigureSizeButton")
+
+        assert section.isAncestorOf(units)
+        assert section.isAncestorOf(width)
+        assert section.isAncestorOf(height)
+        assert units.currentData() == "cm"
+
+        window.findChild(QCheckBox, "lockFigureAspectControl").setChecked(False)
+        width.setValue(20.0)
+        height.setValue(10.0)
+        apply_button.click()
+
+        assert window.appearance.figure_width_inches == pytest.approx(20.0 / 2.54)
+        assert window.appearance.figure_height_inches == pytest.approx(10.0 / 2.54)
+        assert window.findChild(QLabel, "figurePixelSizeLabel").text() == "2362 × 1181 px at 300 DPI"
+        assert fetch_calls == []
+        assert calculate_calls == []
+        assert window.session.exportable_snapshot is snapshot
+    finally:
+        window.close()
+
+
+def test_aspect_fitted_preview_does_not_grow_the_main_window(qapplication):
+    window = PourbaixStudioMainWindow()
+    try:
+        window.show()
+        window.show_snapshot(_snapshot())
+        qapplication.processEvents()
+        widths = []
+        for _ in range(20):
+            qapplication.processEvents()
+            widths.append(window.width())
+
+        assert max(widths) - min(widths) <= 1
+    finally:
+        window.close()
+
+
+def test_major_tick_increment_controls_support_auto_and_fixed_values(qapplication):
+    window = PourbaixStudioMainWindow()
+    try:
+        snapshot = _snapshot()
+        window.show_snapshot(snapshot)
+        section = window.findChild(QFrame, "axisAndTicksSection")
+        x_increment = window.findChild(QDoubleSpinBox, "xMajorTickIntervalControl")
+        y_increment = window.findChild(QDoubleSpinBox, "yMajorTickIntervalControl")
+
+        assert section.isAncestorOf(x_increment)
+        assert section.isAncestorOf(y_increment)
+        assert x_increment.specialValueText() == "Auto"
+        assert y_increment.specialValueText() == "Auto"
+
+        x_increment.setValue(5.0)
+        y_increment.setValue(2.0)
+
+        assert window.appearance.x_major_tick_interval == 5.0
+        assert window.appearance.y_major_tick_interval == 2.0
+        assert window.session.exportable_snapshot is snapshot
+
+        x_increment.setValue(0.0)
+        assert window.appearance.x_major_tick_interval is None
     finally:
         window.close()
