@@ -12,13 +12,14 @@ from PySide6.QtGui import QColor, QFont, QIcon, QPalette
 from PySide6.QtWidgets import (
     QCheckBox, QColorDialog, QComboBox, QDockWidget, QDoubleSpinBox, QFileDialog, QFormLayout,
     QApplication, QFontComboBox, QFrame, QHeaderView, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem, QMainWindow,
-    QPushButton, QScrollArea, QSizePolicy, QSlider, QTableWidget, QTableWidgetItem, QTabWidget, QToolBar,
+    QMessageBox, QPushButton, QScrollArea, QSizePolicy, QSlider, QTableWidget, QTableWidgetItem, QTabWidget, QToolBar,
     QToolButton, QVBoxLayout, QWidget,
 )
 
 from pourbaix_r4.i18n import Language, PreferenceStore
 from pourbaix_r4.calculation import calculate_snapshot
-from pourbaix_r4.credentials import WindowsCredentialStore, resolve_api_key
+from pourbaix_r4.credentials import CredentialError, WindowsCredentialStore, resolve_api_key
+from pourbaix_r4.diagnostics import diagnostics_text as build_diagnostics_text, failure_summary
 from pourbaix_r4.exporting import ExportError, export_boundaries, export_figure
 from pourbaix_r4.figure_size import FIGURE_SIZE_PRESETS_CM, convert_length, pixel_dimensions
 from pourbaix_r4.materials_project import CachedEntryService, MPResterEntryProvider
@@ -63,7 +64,7 @@ class CollapsibleSection(QFrame):
 
 
 class PourbaixStudioMainWindow(QMainWindow):
-    def __init__(self, *, entry_service=None, credential_resolver: Callable[[], object] | None = None, calculate=calculate_snapshot, parent=None):
+    def __init__(self, *, entry_service=None, credential_resolver: Callable[[], object] | None = None, credential_store=None, legacy_key_path: Path | None = None, calculate=calculate_snapshot, parent=None):
         super().__init__(parent)
         self.session = CalculationSession()
         self.preferences = PreferenceStore()
@@ -76,9 +77,12 @@ class PourbaixStudioMainWindow(QMainWindow):
         self._dock_visibility_before_focus = (True, True)
         self._language: Language = self.preferences.language()
         self._entry_service = entry_service or CachedEntryService(MPResterEntryProvider())
-        self._credential_resolver = credential_resolver or (
-            lambda: resolve_api_key(None, WindowsCredentialStore(), legacy_api_key_path())
-        )
+        self._credential_resolver = credential_resolver
+        self._credential_store = credential_store or WindowsCredentialStore()
+        self._legacy_key_path = legacy_key_path or legacy_api_key_path()
+        self._session_api_key: str | None = None
+        self._last_failure_stage: str | None = None
+        self._last_failure_secrets: tuple[str | None, ...] = ()
         self._calculate = calculate
         self.setWindowTitle("Pourbaix Studio R4")
         application_icon = QIcon(str(application_resource_path("assets/pourbaix-studio-r4.png")))
@@ -575,6 +579,7 @@ class PourbaixStudioMainWindow(QMainWindow):
     def _build_toolbar(self) -> None:
         toolbar = QToolBar("Tools", self); self.addToolBar(toolbar)
         toolbar.addAction("API Settings", self.show_api_settings)
+        toolbar.addAction("Diagnostics", self.show_diagnostics)
         toolbar.addAction("Export Data", self._choose_data_export)
         toolbar.addAction("Export Figure", self._choose_figure_export)
         self.focus_plot_action = toolbar.addAction("Focus Plot")
@@ -668,17 +673,58 @@ class PourbaixStudioMainWindow(QMainWindow):
         self._render()
 
     def _generate(self, calculation_input) -> None:
+        stage = "credential"
+        secrets: list[str | None] = [self._session_api_key]
         try:
-            credential = self._credential_resolver()
+            credential = self._resolve_credential()
+            secrets.append(credential.value)
+            stage = "fetch"
             result = self._entry_service.fetch(calculation_input.elements, credential.value)
+            stage = "calculation"
             self.show_snapshot(self._calculate(calculation_input, result.entries))
             self.statusBar().showMessage("Diagram generated.")
         except Exception as error:
             self.session.replace_failure(error)
-            self.statusBar().showMessage("Calculation failed. See diagnostics for details.")
+            self._last_failure_stage = stage
+            self._last_failure_secrets = tuple(secrets)
+            self.statusBar().showMessage(failure_summary(stage, error, secrets=secrets))
 
     def show_api_settings(self) -> None:
-        ApiSettingsDialog(store=WindowsCredentialStore(), parent=self).exec()
+        dialog = ApiSettingsDialog(store=self._credential_store, parent=self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            self._session_api_key = dialog.session_api_key
+            message = "API key cleared for this session." if self._session_api_key is None else "API key ready for this session."
+            self.statusBar().showMessage(message)
+
+    def set_session_api_key(self, api_key: str) -> None:
+        value = api_key.strip()
+        if not value:
+            raise CredentialError("A Materials Project API key is required")
+        self._session_api_key = value
+
+    def _resolve_credential(self):
+        if self._credential_resolver is not None:
+            return self._credential_resolver()
+        return resolve_api_key(self._session_api_key, self._credential_store, self._legacy_key_path)
+
+    def diagnostics_text(self) -> str:
+        error = self.session.last_error
+        if error is None:
+            return "No failed calculation is available."
+        extra_lines = []
+        if hasattr(self._entry_service, "diagnostics"):
+            cache = self._entry_service.diagnostics()
+            extra_lines.append(f"Cache items: {cache.cache_items}")
+            extra_lines.append(f"Last cached entries: {cache.last_entries_count}")
+        return build_diagnostics_text(
+            self._last_failure_stage or "unknown",
+            error,
+            secrets=self._last_failure_secrets,
+            extra_lines=extra_lines,
+        )
+
+    def show_diagnostics(self) -> None:
+        QMessageBox.information(self, "Diagnostics", self.diagnostics_text())
 
     def export_current_data(self, path: Path, file_format: str) -> Path:
         snapshot = self.session.exportable_snapshot

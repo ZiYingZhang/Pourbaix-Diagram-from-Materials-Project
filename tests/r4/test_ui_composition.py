@@ -205,10 +205,17 @@ def test_api_dialog_masks_remembers_forgets_and_exposes_direct_links(qapplicatio
     try:
         assert dialog.api_input.echoMode() != dialog.api_input.EchoMode.Normal
         dialog.api_input.setText("test-secret")
+        dialog.use_current_key_for_session()
+        assert dialog.session_api_key == "test-secret"
+        assert store.value is None
+
+        dialog.api_input.setText("remembered-secret")
         dialog.remember_current_key()
-        assert store.value == "test-secret"
+        assert dialog.session_api_key == "remembered-secret"
+        assert store.value == "remembered-secret"
         dialog.forget_saved_key()
         assert store.value is None
+        assert dialog.session_api_key is None
         dialog.open_key_page()
         dialog.open_documentation()
         assert [url.toString() for url in opened] == [

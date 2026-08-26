@@ -5,7 +5,7 @@ from PySide6.QtGui import QPalette
 from PySide6.QtWidgets import QCheckBox, QComboBox, QDockWidget, QDoubleSpinBox, QFrame, QHeaderView, QLabel, QLineEdit, QPushButton, QScrollArea, QSlider, QTabWidget, QToolBar, QToolButton
 
 from pourbaix_core import FetchResult
-from pourbaix_r4.credentials import ResolvedCredential
+from pourbaix_r4.credentials import CredentialError, ResolvedCredential
 from pourbaix_r4.models import BoundaryRecord, CalculationInput, ResultSnapshot
 from pourbaix_r4.ui.main_window import PourbaixStudioMainWindow
 
@@ -71,6 +71,57 @@ def test_generate_uses_injected_runtime_services_and_replaces_snapshot(qapplicat
         assert calls == [(("Fe", "Ni"), "runtime-secret")]
         assert window.session.exportable_snapshot is not None
         assert window.available_regions.count() == 1
+    finally:
+        window.close()
+
+
+def test_session_api_key_is_used_without_writing_to_secure_store(qapplication):
+    calls = []
+
+    class Store:
+        def __init__(self): self.value = None
+        def get(self): return self.value
+        def set(self, value): self.value = value
+        def delete(self): self.value = None
+
+    class Entries:
+        def fetch(self, elements, api_key):
+            calls.append((tuple(elements), api_key))
+            return FetchResult(["entry"], False)
+
+    store = Store()
+    window = PourbaixStudioMainWindow(
+        entry_service=Entries(),
+        credential_store=store,
+        legacy_key_path=None,
+        calculate=lambda *_: _snapshot(),
+    )
+    try:
+        window.set_session_api_key("session-only-secret")
+        window._generate(_snapshot().calculation_input)
+
+        assert calls == [(("Fe", "Ni"), "session-only-secret")]
+        assert store.value is None
+        assert window.session.exportable_snapshot is not None
+    finally:
+        window.close()
+
+
+def test_failed_generation_exposes_safe_actionable_diagnostics(qapplication):
+    secret = "session-only-secret"
+
+    class Entries:
+        def fetch(self, elements, api_key):
+            raise CredentialError(f"missing credential {api_key}")
+
+    window = PourbaixStudioMainWindow(entry_service=Entries(), calculate=lambda *_: _snapshot())
+    try:
+        window.set_session_api_key(secret)
+        window._generate(_snapshot().calculation_input)
+
+        assert window.statusBar().currentMessage() == "API key is required. Open API Settings."
+        assert "Credential" in window.diagnostics_text()
+        assert secret not in window.diagnostics_text()
     finally:
         window.close()
 
@@ -156,7 +207,7 @@ def test_toolbar_defers_partial_bilingual_switch_and_exposes_figure_export(qappl
         action_texts = [action.text() for action in window.findChildren(QToolBar)[0].actions()]
         assert "中文" not in action_texts
         assert "English" not in action_texts
-        assert action_texts == ["API Settings", "Export Data", "Export Figure", "Focus Plot"]
+        assert action_texts == ["API Settings", "Diagnostics", "Export Data", "Export Figure", "Focus Plot"]
     finally:
         window.close()
 
