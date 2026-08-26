@@ -1,6 +1,8 @@
 # Third-Party Notices
 
-Pourbaix GUI R3.0 is distributed with open-source Python packages. The exact package versions are recorded in `requirements-lock-py313-win64.txt`; their license metadata and license files are collected into the PyInstaller onedir package where provided by the installed distributions.
+Pourbaix Studio R4 is distributed with open-source Python packages. Exact verified versions are recorded in `requirements-lock-py313-win64-r4.txt`. The PyInstaller onedir package collects distribution metadata and license files where they are supplied by the installed packages.
 
-Major runtime components include Python, PyQt5/Qt, mp-api, pymatgen, pymatgen-core, mpcontribs-client, NumPy, SciPy, pandas, Matplotlib, Shapely/GEOS, openpyxl, Requests, Pydantic, and their transitive dependencies. Each component remains governed by its own license. This notice does not replace those licenses.
+Major runtime components include CPython, PySide6/Qt, mp-api, pymatgen, pymatgen-core, mpcontribs-client, NumPy, SciPy, pandas, Matplotlib, Shapely/GEOS, openpyxl, Requests, Pydantic, keyring, PyInstaller, and their transitive dependencies. Each component remains governed by its own license; this notice does not replace those licenses.
+
+The application retrieves data from the Materials Project and uses its MPContribs ion-reference service. Materials Project data, services, branding, and recommended citations remain subject to the Materials Project terms and guidance. See <https://materialsproject.org/> and <https://docs.materialsproject.org/>.
 

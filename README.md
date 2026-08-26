@@ -1,8 +1,22 @@
 # Pourbaix Studio R4
 
+[English](README.md) | [简体中文](README.zh-CN.md)
+
 Pourbaix Studio R4 is a Windows desktop workbench for querying Materials Project data and creating publication-ready pH–potential stability diagrams through pymatgen.
 
 Official repository: <https://github.com/ZiYingZhang/Pourbaix-Diagram-from-Materials-Project>
+
+![Pourbaix Studio R4 showing a TiO2 diagram](tutorial/TiO2.png)
+
+## Download and run
+
+1. Open the repository [Releases](https://github.com/ZiYingZhang/Pourbaix-Diagram-from-Materials-Project/releases) page and download `PourbaixStudioR4-win64.zip`.
+2. Extract the ZIP completely. Do not run the application from inside the archive.
+3. Keep `PourbaixStudioR4.exe` beside its `_internal` directory and launch the EXE.
+4. Open **API Settings**, obtain a key from the [Materials Project API page](https://next-gen.materialsproject.org/api), paste it into the masked field, and choose **Use for this session** or **Remember and use**.
+5. Define the system, composition, concentrations, pH range, and potential range; then select **Generate diagram**.
+
+The portable package does not require a separate Python installation or administrator rights. See the [English user guide](USER_GUIDE.md) or [中文使用教程](USER_GUIDE.zh-CN.md) for the complete workflow.
 
 ## Run from source
 
@@ -20,6 +34,7 @@ VS Code uses `${workspaceFolder}`-relative settings. The source folder may there
 ## Main features
 
 - Up to four closed elements with freely editable composition ratios
+- Periodic-table element selection or direct formula entry
 - H and O handled as open reservoirs, without ratios or ion concentrations
 - Materials Project API access with optional secure storage in Windows Credential Manager
 - Composition, ion-concentration, solid-filter, pH, and potential controls
@@ -32,6 +47,8 @@ VS Code uses `${workspaceFolder}`-relative settings. The source folder may there
 ## API key
 
 Obtain a key from <https://next-gen.materialsproject.org/api>. R4 can remember it in Windows Credential Manager. It does not save new keys to project files or include keys in release archives. For compatibility only, an existing `mp_api_key.txt` beside the source launcher or packaged executable can still be read.
+
+![Materials Project API key dialog](tutorial/get%20API%20key%20first.png)
 
 ## Build the portable Windows package
 
@@ -62,6 +79,13 @@ pH is dimensionless and potential is volts versus SHE. Diagram construction is d
 ## Documentation
 
 - [Windows quick start](USER_GUIDE.md)
+- [中文使用教程](USER_GUIDE.zh-CN.md)
+- [中文项目说明](README.zh-CN.md)
+- [中文 VS Code 运行教程](VS_CODE运行教程.md)
 - [R4 design](docs/superpowers/specs/2026-08-22-pourbaix-r4-pyside6-design.md)
 - [Scientific contract](docs/numerical-contract.md)
 - [Acceptance checklist](docs/acceptance-checklist.md)
+
+## Acknowledgements
+
+Pourbaix Studio uses data and services from the [Materials Project](https://materialsproject.org/) and scientific functionality from [pymatgen](https://pymatgen.org/). Please follow the citation guidance of these projects when using generated results in publications.
