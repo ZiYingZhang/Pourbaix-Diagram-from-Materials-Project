@@ -19,6 +19,13 @@ def test_r4_self_test_does_not_scan_distribution_metadata(monkeypatch):
     assert pourbaix_studio_R4.run_self_test() == 0
 
 
+def test_r4_mpcontribs_smoke_loads_its_parser_resources():
+    """Catch missing rfc3987 grammar data before it blocks Pourbaix queries."""
+    import pourbaix_studio_R4
+
+    assert pourbaix_studio_R4.run_mpcontribs_smoke() == 0
+
+
 def test_r4_self_test_runs_without_constructing_a_window(tmp_path):
     completed = subprocess.run(
         [sys.executable, str(SCRIPT), "--self-test"],

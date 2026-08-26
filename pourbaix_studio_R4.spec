@@ -12,7 +12,7 @@ hiddenimports = []
 
 datas += [(os.path.join(project_root, "assets", "pourbaix-studio-r4.png"), "assets")]
 
-for package in ("pymatgen", "mp_api", "mpcontribs", "emmet", "shapely", "keyring"):
+for package in ("pymatgen", "mp_api", "mpcontribs", "rfc3987_syntax", "emmet", "shapely", "keyring"):
     package_datas, package_binaries, package_hidden = collect_all(package)
     datas += package_datas
     binaries += package_binaries

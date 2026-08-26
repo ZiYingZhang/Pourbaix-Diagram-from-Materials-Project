@@ -105,6 +105,10 @@ if ($LASTEXITCode -ne 0) {
 if ($LASTEXITCODE -ne 0) {
     throw "R4 source GUI smoke failed with exit code $LASTEXITCODE."
 }
+& $Python "pourbaix_studio_R4.py" --mpcontribs-smoke
+if ($LASTEXITCODE -ne 0) {
+    throw "R4 source MPContribs smoke failed with exit code $LASTEXITCODE."
+}
 
 $OriginalBuildPath = $env:PATH
 $env:PATH = Remove-IncompatibleIcuDirectoriesFromPath -PathValue $OriginalBuildPath
@@ -126,6 +130,10 @@ $PackagedRuntimeIcon = Join-Path $PackageDir "_internal\assets\pourbaix-studio-r
 if (-not (Test-Path -LiteralPath $PackagedRuntimeIcon -PathType Leaf)) {
     throw "Packaged runtime icon was not found: $PackagedRuntimeIcon"
 }
+$PackagedRfc3987Grammar = Join-Path $PackageDir "_internal\rfc3987_syntax\syntax_rfc3987.lark"
+if (-not (Test-Path -LiteralPath $PackagedRfc3987Grammar -PathType Leaf)) {
+    throw "Packaged MPContribs parser grammar was not found: $PackagedRfc3987Grammar"
+}
 
 foreach ($Doc in @("README.md", "USER_GUIDE.md", "THIRD_PARTY_NOTICES.md", "requirements-lock-py313-win64-r4.txt")) {
     Copy-Item -LiteralPath (Join-Path $ProjectRoot $Doc) -Destination (Join-Path $PackageDir $Doc)
@@ -133,6 +141,7 @@ foreach ($Doc in @("README.md", "USER_GUIDE.md", "THIRD_PARTY_NOTICES.md", "requ
 
 Invoke-CheckedGuiProcess -FilePath $PackageExe -ArgumentList @("--self-test")
 Invoke-CheckedGuiProcess -FilePath $PackageExe -ArgumentList @("--gui-smoke")
+Invoke-CheckedGuiProcess -FilePath $PackageExe -ArgumentList @("--mpcontribs-smoke")
 
 $EntriesPayload = Get-ChildItem -LiteralPath $PackageDir -Recurse -Force -ErrorAction Stop |
     Where-Object { $_.Name -like "entries*" -and $_.FullName -match "pymatgen[\\/]core" } |
@@ -162,6 +171,7 @@ if (-not (Test-Path -LiteralPath $ExtractedExe -PathType Leaf)) {
 }
 Invoke-CheckedGuiProcess -FilePath $ExtractedExe -ArgumentList @("--self-test")
 Invoke-CheckedGuiProcess -FilePath $ExtractedExe -ArgumentList @("--gui-smoke")
+Invoke-CheckedGuiProcess -FilePath $ExtractedExe -ArgumentList @("--mpcontribs-smoke")
 
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $Zip = [IO.Compression.ZipFile]::OpenRead($ArchivePath)
@@ -195,10 +205,13 @@ $Manifest = [ordered]@{
     smokes = [ordered]@{
         source_self_test = 0
         source_gui = 0
+        source_mpcontribs = 0
         packaged_self_test = 0
         packaged_gui = 0
+        packaged_mpcontribs = 0
         extracted_self_test = 0
         extracted_gui = 0
+        extracted_mpcontribs = 0
     }
     live_materials_project = [ordered]@{
         status = "Skipped"
@@ -209,6 +222,7 @@ $Manifest = [ordered]@{
         files = $PackageFiles
         pymatgen_core_entries = $EntriesPayload.FullName.Substring($PackageDir.Length).TrimStart("\")
         runtime_icon = $PackagedRuntimeIcon.Substring($PackageDir.Length).TrimStart("\")
+        mpcontribs_grammar = $PackagedRfc3987Grammar.Substring($PackageDir.Length).TrimStart("\")
         forbidden_files = 0
     }
     branding = [ordered]@{
