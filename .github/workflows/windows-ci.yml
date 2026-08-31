@@ -1,0 +1,52 @@
+name: R4 Windows CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: r4-windows-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  MPLBACKEND: Agg
+  PYTHONUTF8: "1"
+  QT_QPA_PLATFORM: offscreen
+
+jobs:
+  test:
+    name: Python 3.13 / Windows
+    runs-on: windows-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: requirements-lock-py313-win64-r4.txt
+
+      - name: Install locked R4 dependencies
+        run: python -m pip install --disable-pip-version-check -r requirements-lock-py313-win64-r4.txt
+
+      - name: Run R4 test suite
+        run: python -m pytest -q tests/r4
+
+      - name: Run source self-test
+        run: python pourbaix_studio_R4.py --self-test
+
+      - name: Run source GUI smoke test
+        run: python pourbaix_studio_R4.py --gui-smoke
+
+      - name: Run MPContribs resource smoke test
+        run: python pourbaix_studio_R4.py --mpcontribs-smoke
