@@ -1,0 +1,5 @@
+# Repository-wide review owner
+* @ZiYingZhang
+
+# Protect the ownership policy itself
+/.github/CODEOWNERS @ZiYingZhang
