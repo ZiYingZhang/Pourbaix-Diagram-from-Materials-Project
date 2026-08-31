@@ -1,5 +1,7 @@
 # Pourbaix Studio R4
 
+[![R4 Windows CI](https://github.com/ZiYingZhang/Pourbaix-Diagram-from-Materials-Project/actions/workflows/windows-ci.yml/badge.svg)](https://github.com/ZiYingZhang/Pourbaix-Diagram-from-Materials-Project/actions/workflows/windows-ci.yml)
+
 [English](README.md) | [简体中文](README.zh-CN.md)
 
 Pourbaix Studio R4 is a Windows desktop workbench for querying Materials Project data and creating publication-ready pH–potential stability diagrams through pymatgen.
